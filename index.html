@@ -13,13 +13,14 @@
 <style>
 body{background:#0a0a0a;color:#e7e5e4;font-family:'Inter',sans-serif;}
 .mono{font-family:'IBM Plex Mono',monospace;}
-@keyframes spin{to{transform:rotate(360deg);}}
-.spin{animation:spin 1s linear infinite;display:inline-block;}
-@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.15)}}
-.pulse{animation:pulse 1.6s ease-in-out infinite;}
-::-webkit-scrollbar{width:4px;height:4px;}
-::-webkit-scrollbar-track{background:#171717;}
-::-webkit-scrollbar-thumb{background:#3f3f46;border-radius:2px;}
+@keyframes spin{to{transform:rotate(360deg);}}.spin{animation:spin 1s linear infinite;display:inline-block;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}.pulse{animation:pulse 1.5s ease-in-out infinite;}
+@keyframes slideDown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}.slide-down{animation:slideDown .18s ease-out;}
+::-webkit-scrollbar{width:4px;height:4px;}::-webkit-scrollbar-track{background:#171717;}::-webkit-scrollbar-thumb{background:#3f3f46;border-radius:2px;}
+.tab-active{border-bottom:2px solid #f59e0b;color:#f5f5f4;}
+.tab-inactive{border-bottom:2px solid transparent;color:#78716c;}
+.tab-inactive:hover{color:#a8a29e;}
+.order-glow{box-shadow:0 0 0 1px #10b98140,0 0 12px #10b98120;}
 </style>
 </head>
 <body class="min-h-screen">
@@ -27,38 +28,35 @@ body{background:#0a0a0a;color:#e7e5e4;font-family:'Inter',sans-serif;}
 <script type="text/babel">
 const {useState,useEffect,useCallback,useMemo,useRef}=React;
 
-// ── Config ──────────────────────────────────────────────────────────
-const ACCOUNT_ID = '2295943007451315';
-const PIXEL_ID   = '8580400178755002';
-const DASH_PASS  = 'PixieDash2026';
-const BASE       = 'https://graph.facebook.com/v20.0';
-const ATTR       = 'use_account_attribution_setting=true&default_summary=true';
-const FIELDS     = 'spend,impressions,inline_link_clicks,clicks,reach,frequency,actions,action_values,conversions,unique_actions';
+const ACCOUNT_ID='2295943007451315';
+const BASE='https://graph.facebook.com/v20.0';
+const ATTR='use_account_attribution_setting=true&default_summary=true';
+const FIELDS='spend,impressions,inline_link_clicks,clicks,reach,frequency,actions,action_values,conversions,unique_actions';
 
-const CAMPAIGN_SLOTS=[
-  {slot:'C1',name:'BROAD · TIER1CITIES · F25-54 · BUNDLE', type:'prospecting', killRoas:1.4,targetRoas:[1.4,1.6],targetCpa:3200,targetAov:7800,frequencyMax:2.5,killSpend:15000},
-  {slot:'C2',name:'BROAD · TIER2CITIES · F25-54 · BUNDLE', type:'prospecting', killRoas:1.5,targetRoas:[1.6,1.8],targetCpa:3200,targetAov:7800,frequencyMax:2.5,killSpend:15000},
-  {slot:'C3',name:'ROI PREPAID · REST OF INDIA',           type:'prospecting', killRoas:1.0,targetRoas:[1.0,1.3],targetCpa:3000,targetAov:5000,frequencyMax:3.0,killSpend:15000},
-  {slot:'C4',name:'F25-34 GROWTH SEGMENT',                 type:'prospecting', killRoas:1.3,targetRoas:[1.4,1.6],targetCpa:3000,targetAov:5500,frequencyMax:2.5,killSpend:15000},
-  {slot:'C5',name:'LOOKALIKE · TOP LTV',                   type:'prospecting', killRoas:1.3,targetRoas:[1.3,1.5],targetCpa:3400,targetAov:5800,frequencyMax:2.5,killSpend:15000},
-  {slot:'C6',name:'PREMIUM ANCHOR · CORE CITIES',          type:'prospecting', killRoas:1.1,targetRoas:[1.2,1.4],targetCpa:3800,targetAov:8000,frequencyMax:2.0,killSpend:15000},
-  {slot:'C7',name:'RT · DPA HOT · 7-DAY VIEWED',           type:'retargeting', killRoas:2.0,targetRoas:[2.5,3.0],targetCpa:1800,targetAov:8500,frequencyMax:3.5,killSpend:8000},
-  {slot:'C8',name:'RT · WARM · 30-70 DAY',                 type:'retargeting', killRoas:1.5,targetRoas:[1.7,2.0],targetCpa:2500,targetAov:6800,frequencyMax:3.5,killSpend:8000},
-  {slot:'C9',name:'REACTIVATION · 90+ DAY PAST BUYERS',    type:'reactivation',killRoas:2.5,targetRoas:[3.5,4.5],targetCpa:1500,targetAov:6500,frequencyMax:3.5,killSpend:5000},
+const SLOTS=[
+  {slot:'C1',name:'BROAD · TIER1CITIES · F25-54 · BUNDLE', type:'prospecting', killRoas:1.4,targetCpa:3200,targetAov:7800,freqMax:2.5,killSpend:15000},
+  {slot:'C2',name:'BROAD · TIER2CITIES · F25-54 · BUNDLE', type:'prospecting', killRoas:1.5,targetCpa:3200,targetAov:7800,freqMax:2.5,killSpend:15000},
+  {slot:'C3',name:'ROI PREPAID · REST OF INDIA',           type:'prospecting', killRoas:1.0,targetCpa:3000,targetAov:5000,freqMax:3.0,killSpend:15000},
+  {slot:'C4',name:'F25-34 GROWTH SEGMENT',                 type:'prospecting', killRoas:1.3,targetCpa:3000,targetAov:5500,freqMax:2.5,killSpend:15000},
+  {slot:'C5',name:'LOOKALIKE · TOP LTV',                   type:'prospecting', killRoas:1.3,targetCpa:3400,targetAov:5800,freqMax:2.5,killSpend:15000},
+  {slot:'C6',name:'PREMIUM ANCHOR · CORE CITIES',          type:'prospecting', killRoas:1.1,targetCpa:3800,targetAov:8000,freqMax:2.0,killSpend:15000},
+  {slot:'C7',name:'RT · DPA HOT · 7-DAY VIEWED',           type:'retargeting', killRoas:2.0,targetCpa:1800,targetAov:8500,freqMax:3.5,killSpend:8000},
+  {slot:'C8',name:'RT · WARM · 30-70 DAY',                 type:'retargeting', killRoas:1.5,targetCpa:2500,targetAov:6800,freqMax:3.5,killSpend:8000},
+  {slot:'C9',name:'REACTIVATION · 90+ DAY PAST BUYERS',    type:'reactivation',killRoas:2.5,targetCpa:1500,targetAov:6500,freqMax:3.5,killSpend:5000},
 ];
-const SLOT_MAP=Object.fromEntries(CAMPAIGN_SLOTS.map(c=>[c.slot,c]));
+const SLOT_MAP=Object.fromEntries(SLOTS.map(c=>[c.slot,c]));
 const PHASE1_START=new Date('2026-05-11T00:00:00+05:30');
 const PHASES=[{n:1,days:30,target:1.6,kill:1.4},{n:2,days:30,target:2.2,kill:1.5},{n:3,days:30,target:2.8,kill:1.7}];
 const DATE_PRESETS=[{l:'Today',v:'today'},{l:'Yesterday',v:'yesterday'},{l:'Last 3d',v:'last_3d'},{l:'Last 7d',v:'last_7d'},{l:'Last 14d',v:'last_14d'},{l:'Last 28d',v:'last_28d'},{l:'Last 30d',v:'last_30d'},{l:'Last 60d',v:'last_60d'},{l:'This month',v:'this_month'},{l:'Last month',v:'last_month'},{l:'Maximum',v:'maximum'}];
 
-// ── Helpers ─────────────────────────────────────────────────────────
+// ── Formatters ───────────────────────────────────────────────────────
 const inr=n=>n==null?'—':'₹'+Math.round(n).toLocaleString('en-IN');
 const num=n=>n==null?'—':Number(n).toLocaleString('en-IN');
 const pct=(n,d=1)=>n==null?'—':Number(n).toFixed(d)+'%';
 const fx=(n,d=2)=>n==null?'—':Number(n).toFixed(d)+'x';
 const rc=(r,k)=>!r?'text-stone-500':r>=k*1.15?'text-emerald-400':r>=k?'text-amber-400':'text-red-400';
 
-// ── Meta API ────────────────────────────────────────────────────────
+// ── Meta API ─────────────────────────────────────────────────────────
 function findConv(row,type,src='actions'){
   for(const s of[src,'conversions','unique_actions']){
     const arr=row?.[s];if(!Array.isArray(arr))continue;
@@ -66,481 +64,568 @@ function findConv(row,type,src='actions'){
       const it=arr.find(a=>a.action_type===v);
       if(it){const x=parseFloat(it.value||0);if(x>0)return x;}
     }
-  }
-  return 0;
+  }return 0;
 }
 function buildKpis(row){
-  if(!row)return{spend:0,revenue:0,purchases:0,roas:null,cpa:null,aov:null,impressions:0,linkClicks:0,ctr:null,lpv:0,vc:0,atc:0,ic:0,icToPurchase:null,clickToLpv:null,frequency:0};
-  const spend=parseFloat(row.spend||0);
-  const impr=parseInt(row.impressions||0);
+  if(!row)return{spend:0,revenue:0,purchases:0,roas:null,cpa:null,aov:null,impressions:0,linkClicks:0,ctr:null,cpc:null,lpv:0,vc:0,atc:0,ic:0,frequency:0,icToPurchase:null,clickToLpv:null};
+  const spend=parseFloat(row.spend||0),impr=parseInt(row.impressions||0);
   const clicks=parseInt(row.inline_link_clicks||0)||findConv(row,'link_click');
-  const lpv=findConv(row,'landing_page_view');
-  const vc=findConv(row,'view_content');
-  const atc=findConv(row,'add_to_cart');
-  const ic=findConv(row,'initiate_checkout');
-  const p=findConv(row,'purchase');
-  const rev=findConv(row,'purchase','action_values');
-  const freq=parseFloat(row.frequency||0);
-  return{
-    spend:Math.round(spend),revenue:Math.round(rev),purchases:p,
-    roas:spend>0?+(rev/spend).toFixed(2):null,
-    cpa:p>0?Math.round(spend/p):null,aov:p>0?Math.round(rev/p):null,
-    impressions:impr,linkClicks:clicks,frequency:freq,
-    ctr:impr>0?+((clicks/impr)*100).toFixed(2):null,
-    cpc:clicks>0?Math.round(spend/clicks):null,
-    lpv,vc,atc,ic,
-    icToPurchase:ic>0?+((p/ic)*100).toFixed(1):null,
-    clickToLpv:clicks>0?+((lpv/clicks)*100).toFixed(1):null,
-  };
+  const lpv=findConv(row,'landing_page_view'),vc=findConv(row,'view_content');
+  const atc=findConv(row,'add_to_cart'),ic=findConv(row,'initiate_checkout');
+  const p=findConv(row,'purchase'),rev=findConv(row,'purchase','action_values');
+  return{spend:Math.round(spend),revenue:Math.round(rev),purchases:p,
+    roas:spend>0?+(rev/spend).toFixed(2):null,cpa:p>0?Math.round(spend/p):null,aov:p>0?Math.round(rev/p):null,
+    impressions:impr,linkClicks:clicks,frequency:parseFloat(row.frequency||0),
+    ctr:impr>0?+((clicks/impr)*100).toFixed(2):null,cpc:clicks>0?Math.round(spend/clicks):null,
+    lpv,vc,atc,ic,icToPurchase:ic>0?+((p/ic)*100).toFixed(1):null,clickToLpv:clicks>0?+((lpv/clicks)*100).toFixed(1):null};
 }
-function slotFor(name){
-  if(!name)return null;
-  const m=name.toUpperCase().match(/^(C\d+)[_\s\-·]/);
-  return m&&SLOT_MAP[m[1]]?m[1]:null;
-}
-async function metaFetch(token,path,params=''){
-  const sep=path.includes('?')?'&':'?';
-  const url=`${BASE}/${path}${sep}${params}&access_token=${token}`;
-  const r=await fetch(url);
-  const d=await r.json();
-  if(d.error)throw new Error(d.error.message||JSON.stringify(d.error));
+function slotFor(name){if(!name)return null;const m=name.toUpperCase().match(/^(C\d+)[_\s\-·]/);return m&&SLOT_MAP[m[1]]?m[1]:null;}
+
+async function metaGet(token,path,params){
+  const url=`${BASE}/${path}?${params}&access_token=${token}`;
+  const r=await fetch(url);const d=await r.json();
+  if(d.error)throw new Error(d.error.message||'Meta API error');
   return d;
 }
-async function fetchDashboard(token,dateQ){
-  const[camps,acctIns,campIns,daily]=await Promise.all([
-    metaFetch(token,`act_${ACCOUNT_ID}/campaigns`,`fields=id,name,status,effective_status,daily_budget,lifetime_budget,start_time,objective&limit=100`),
-    metaFetch(token,`act_${ACCOUNT_ID}/insights`,`fields=${FIELDS}&${dateQ}&${ATTR}`),
-    metaFetch(token,`act_${ACCOUNT_ID}/insights`,`fields=campaign_id,campaign_name,${FIELDS}&level=campaign&${dateQ}&${ATTR}&limit=50`),
-    metaFetch(token,`act_${ACCOUNT_ID}/insights`,`fields=${FIELDS}&${dateQ}&${ATTR}&time_increment=1&limit=90`),
+async function fetchAll(token,dateQ){
+  const[camps,acct,ci,daily]=await Promise.all([
+    metaGet(token,`act_${ACCOUNT_ID}/campaigns`,`fields=id,name,status,effective_status,daily_budget,lifetime_budget,start_time,objective&limit=100`),
+    metaGet(token,`act_${ACCOUNT_ID}/insights`,`fields=${FIELDS}&${dateQ}&${ATTR}`),
+    metaGet(token,`act_${ACCOUNT_ID}/insights`,`fields=campaign_id,campaign_name,${FIELDS}&level=campaign&${dateQ}&${ATTR}&limit=50`),
+    metaGet(token,`act_${ACCOUNT_ID}/insights`,`fields=${FIELDS}&${dateQ}&${ATTR}&time_increment=1&limit=90`),
   ]);
-  const acctKpis=buildKpis((acctIns.data||[])[0])||{};
-  const insMap={};(campIns.data||[]).forEach(r=>{insMap[r.campaign_id]=r;});
+  const acctK=buildKpis((acct.data||[])[0])||{};
+  const im={};(ci.data||[]).forEach(r=>{im[r.campaign_id]=r;});
   const dailyData=(daily.data||[]).map(r=>({date:r.date_start,...buildKpis(r)}));
-  const campaigns=(camps.data||[])
-    .filter(c=>c.effective_status!=='DELETED')
-    .map(c=>{
-      const ins=insMap[c.id];const k=buildKpis(ins);
-      const slot=slotFor(c.name);const cfg=slot?SLOT_MAP[slot]:null;
-      const eff=c.effective_status;const spend=k.spend||0;const roas=k.roas;
-      let status='active';
-      if(['PAUSED','CAMPAIGN_PAUSED','ADSET_PAUSED'].includes(eff))status='paused';
-      else if(['DISAPPROVED','POLICY_VIOLATION'].includes(eff))status='disapproved';
-      else if(['PREPARING','PENDING_REVIEW'].includes(eff))status='preparing';
-      else if(!ins||spend===0)status='active_no_spend';
-      else if(cfg&&spend>cfg.killSpend&&roas!==null&&roas<cfg.killRoas)status='kill';
-      return{id:c.id,name:c.name,slot,metaStatus:c.status,effectiveStatus:eff,
-        dailyBudget:c.daily_budget?Math.round(parseInt(c.daily_budget)/100):null,
-        startTime:c.start_time,objective:c.objective,status,...k};
-    })
-    .sort((a,b)=>(b.spend||0)-(a.spend||0));
-  const mapped=campaigns.filter(c=>c.slot);
-  const unmapped=campaigns.filter(c=>!c.slot);
-  return{
-    syncedAt:new Date().toISOString(),
-    syncedAtIST:new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata',hour12:false}),
-    ...acctKpis,campaigns:mapped,unmappedCampaigns:unmapped,
-    unmappedSpend:unmapped.reduce((s,c)=>s+(c.spend||0),0),
-    unmappedRevenue:unmapped.reduce((s,c)=>s+(c.revenue||0),0),
-    dailyData,
-  };
+  const campaigns=(camps.data||[]).filter(c=>c.effective_status!=='DELETED').map(c=>{
+    const k=buildKpis(im[c.id]);const slot=slotFor(c.name);const cfg=slot?SLOT_MAP[slot]:null;
+    const eff=c.effective_status;const spend=k.spend||0;let status='active';
+    if(['PAUSED','CAMPAIGN_PAUSED'].includes(eff))status='paused';
+    else if(['DISAPPROVED','POLICY_VIOLATION'].includes(eff))status='disapproved';
+    else if(!im[c.id]||spend===0)status='active_no_spend';
+    else if(cfg&&spend>cfg.killSpend&&k.roas!==null&&k.roas<cfg.killRoas)status='kill';
+    return{id:c.id,name:c.name,slot,effectiveStatus:eff,
+      dailyBudget:c.daily_budget?Math.round(parseInt(c.daily_budget)/100):null,
+      startTime:c.start_time,objective:c.objective,status,...k};
+  }).sort((a,b)=>(b.spend||0)-(a.spend||0));
+  return{syncedAt:new Date().toISOString(),...acctK,
+    campaigns:campaigns.filter(c=>c.slot),unmappedCampaigns:campaigns.filter(c=>!c.slot),dailyData};
 }
 async function fetchDetail(token,campaignId,dateQ){
   const filter=encodeURIComponent(JSON.stringify([{field:'campaign.id',operator:'EQUAL',value:campaignId}]));
-  const[sAdsets,aIns,adIns,sAds]=await Promise.all([
-    metaFetch(token,`${campaignId}/adsets`,`fields=id,name,daily_budget,status,effective_status,bid_strategy&limit=50`),
-    metaFetch(token,`act_${ACCOUNT_ID}/insights`,`fields=adset_id,adset_name,${FIELDS}&level=adset&${dateQ}&${ATTR}&filtering=${filter}&limit=50`),
-    metaFetch(token,`act_${ACCOUNT_ID}/insights`,`fields=ad_id,ad_name,adset_id,${FIELDS}&level=ad&${dateQ}&${ATTR}&filtering=${filter}&limit=100`),
-    metaFetch(token,`${campaignId}/ads`,`fields=id,name,adset_id,status,effective_status,review_feedback&limit=100`),
+  const[sa,ai,adi,sads]=await Promise.all([
+    metaGet(token,`${campaignId}/adsets`,`fields=id,name,daily_budget,status,effective_status&limit=50`),
+    metaGet(token,`act_${ACCOUNT_ID}/insights`,`fields=adset_id,adset_name,${FIELDS}&level=adset&${dateQ}&${ATTR}&filtering=${filter}&limit=50`),
+    metaGet(token,`act_${ACCOUNT_ID}/insights`,`fields=ad_id,ad_name,adset_id,${FIELDS}&level=ad&${dateQ}&${ATTR}&filtering=${filter}&limit=100`),
+    metaGet(token,`${campaignId}/ads`,`fields=id,name,adset_id,status,effective_status,review_feedback&limit=100`),
   ]);
-  const aInsMap={};(aIns.data||[]).forEach(r=>{aInsMap[r.adset_id]=r;});
-  const adIMap={};(adIns.data||[]).forEach(r=>{adIMap[r.ad_id]=r;});
-  const allImpr=(adIns.data||[]).reduce((s,r)=>s+parseInt(r.impressions||0),0);
-  const allClicks=(adIns.data||[]).reduce((s,r)=>s+(parseInt(r.inline_link_clicks||0)||findConv(r,'link_click')),0);
-  const avgCtr=allImpr>0?(allClicks/allImpr)*100:1.5;
-  const adsets=(sAdsets.data||[]).map(a=>{
-    const ins=aInsMap[a.id];const k=buildKpis(ins);
-    const all=(sAdsets.data||[]).map(x=>buildKpis(aInsMap[x.id])||{});
+  const aim={};(ai.data||[]).forEach(r=>{aim[r.adset_id]=r;});
+  const adim={};(adi.data||[]).forEach(r=>{adim[r.ad_id]=r;});
+  const adsets=(sa.data||[]).map(a=>{
+    const k=buildKpis(aim[a.id]);
     return{id:a.id,name:a.name,dailyBudget:a.daily_budget?Math.round(parseInt(a.daily_budget)/100):null,
-      status:a.status,effectiveStatus:a.effective_status,bidStrategy:a.bid_strategy,
-      hasSpend:!!(ins&&k.spend>0),...k,rec:adsetRec({...k,dailyBudget:a.daily_budget?Math.round(parseInt(a.daily_budget)/100):null},all)};
+      status:a.status,effectiveStatus:a.effective_status,hasSpend:!!(aim[a.id]&&k.spend>0),...k};
   });
-  const ads=(sAds.data||[]).map(a=>{
-    const ins=adIMap[a.id];const k=buildKpis(ins)||{};
-    const v=ins?adVerdict(k,avgCtr):'blocked';
-    return{id:a.id,name:a.name,adsetId:a.adset_id,metaStatus:a.status,effectiveStatus:a.effective_status,
-      reviewFeedback:a.review_feedback||null,hasSpend:!!(ins&&k.spend>0),verdict:v,rec:adRec({...k,verdict:v},avgCtr),...k};
+  const allI=(adi.data||[]).reduce((s,r)=>s+parseInt(r.impressions||0),0);
+  const allC=(adi.data||[]).reduce((s,r)=>s+(parseInt(r.inline_link_clicks||0)||findConv(r,'link_click')),0);
+  const avgCtr=allI>0?(allC/allI)*100:1.5;
+  const ads=(sads.data||[]).map(a=>{
+    const k=buildKpis(adim[a.id]);const v=adim[a.id]?verdict(k,avgCtr):'blocked';
+    return{id:a.id,name:a.name,adsetId:a.adset_id,effectiveStatus:a.effective_status,
+      hasSpend:!!(adim[a.id]&&k.spend>0),verdict:v,...k};
   });
-  const spenders=adsets.filter(a=>a.hasSpend&&a.cpc>0);
-  let budgetRealloc=null;
-  if(spenders.length>=2){
-    const worst=spenders.reduce((a,b)=>a.cpc>b.cpc?a:b);
-    const best=spenders.reduce((a,b)=>a.cpc<b.cpc?a:b);
-    if(worst.id!==best.id&&!adsets.filter(a=>a.purchases>0).some(c=>c.id===worst.id)){
-      const move=worst.dailyBudget?Math.round(worst.dailyBudget*0.2):1000;
-      budgetRealloc={from:{id:worst.id,name:worst.name,cpc:worst.cpc},to:{id:best.id,name:best.name,cpc:best.cpc},moveAmount:move};
-    }
-  }
-  return{campaignId,adsets,ads,budgetRealloc,summary:{adsetCount:adsets.length,adCount:ads.length,heroes:ads.filter(a=>a.verdict==='hero'||a.purchases>0).length,killCandidates:ads.filter(a=>a.verdict==='kill'&&!(a.purchases>0)).length,avgCtr:+avgCtr.toFixed(2)}};
+  return{adsets,ads,avgCtr:+avgCtr.toFixed(2)};
 }
-function adsetRec(a,all){
-  if(!a.spend)return{level:'nodata',text:'No spend this period.'};
-  const sp=all.filter(x=>x.spend>0&&x.cpc>0);if(!sp.length)return{level:'watch',text:'Monitoring.'};
-  const avg=sp.reduce((s,x)=>s+x.cpc,0)/sp.length;
-  const maxP=Math.max(...sp.map(x=>x.purchases||0));
-  if(a.purchases>0&&a.purchases>=maxP*0.8)return{level:'watch',text:'Only converting adset — protect it. Focus on GoKwik fbclid attribution before making budget changes.'};
-  if(a.atc>=3&&a.ic===0)return{level:'warn',text:`${a.atc} ATCs, 0 IC — GoKwik not attributing checkout events. Enable fbclid passthrough in GoKwik → Integrations → Meta Ads.`};
-  if(a.cpc>avg*1.25)return{level:'reduce',text:`CPC ₹${Math.round(a.cpc)} vs avg ₹${Math.round(avg)} (+${Math.round((a.cpc/avg-1)*100)}%). Reduce budget 20%. Reallocate to best performer.`};
-  if(a.cpc<avg*0.8)return{level:'scale',text:`Lowest CPC ₹${Math.round(a.cpc)} vs avg ₹${Math.round(avg)}. Most efficient. Scale +20%.`};
-  return{level:'watch',text:`CTR ${a.ctr}%, CPC ₹${Math.round(a.cpc)}. Stable — monitor 48h.`};
-}
-function adVerdict(k,avgCtr){
-  if(k.impressions===0)return'blocked';
-  if(k.impressions<300)return'small';
-  if(k.purchases>0&&k.roas>=2)return'hero';
-  if(k.purchases>0)return'watch';
-  if(k.ctr>=avgCtr*1.5&&k.cpc>0&&k.cpc<65)return'hero';
-  if(k.ctr<1.0&&k.cpc>130)return'kill';
-  if(k.hookRate>=25)return'promising';
-  return'watch';
-}
-function adRec(ad,avgCtr){
-  const a5=ad.cpc>0?Math.round((ad.cpc/0.55)*5):null;
-  if(ad.verdict==='hero')return{level:'scale',title:'Scale — Hero creative',text:`CTR ${ad.ctr}%, CPC ${inr(ad.cpc)}. Create solo adset. Brief 3 hook variants.`,unit:a5?`Need AOV ≥${inr(a5)} for 5x ROAS.`:null};
-  if(ad.verdict==='kill'){
-    if(ad.purchases>0)return{level:'warn',title:'Converting — Do NOT pause',text:`Low CTR but ${ad.purchases} purchase(s). Low CTR = narrow audience, not bad creative.`,unit:null};
-    return{level:'kill',title:'Pause — 0 purchases, weak signal',text:`CTR ${ad.ctr}%, CPC ${inr(ad.cpc)}, 0 purchases. Pause. Brief new hook.`,unit:null};
-  }
-  if(ad.verdict==='blocked')return{level:'blocked',title:'Stuck in review',text:'Over 48h. Duplicate with simpler creative.',unit:null};
-  if(ad.verdict==='small')return{level:'wait',title:'Insufficient data',text:`${ad.impressions} impressions. Need 300+ for a verdict.`,unit:null};
-  if(ad.verdict==='promising')return{level:'promising',title:'Promising — Strong hook',text:`Hook rate ${ad.hookRate?.toFixed(0)}% (benchmark 25%+). Give 3 more days.`,unit:a5?`Need AOV ≥${inr(a5)} for 5x ROAS.`:null};
-  if(ad.hookRate<15)return{level:'warn',title:'Weak hook',text:`Hook ${ad.hookRate?.toFixed(0)}% below 25%. Test 3 new first-3s variations.`,unit:null};
-  return{level:'watch',title:'Monitoring',text:`CTR ${ad.ctr}%, CPC ${inr(ad.cpc)}. ${ad.impressions>500?'Make a call in 48h.':`${500-ad.impressions} more impressions needed.`}`,unit:null};
+function verdict(k,avgCtr){
+  if(k.impressions===0)return'blocked';if(k.impressions<300)return'small';
+  if(k.purchases>0)return'hero';
+  if(k.ctr>=avgCtr*1.5&&k.cpc>0&&k.cpc<65)return'top';
+  if(k.ctr<1.0&&k.cpc>130)return'kill';return'watch';
 }
 
-// ── Action Plan ─────────────────────────────────────────────────────
+// ── Action Plan ──────────────────────────────────────────────────────
 function buildPlan(cfg,data,detail,dateLabel){
   if(!cfg||!data)return[];
-  const{killRoas,killSpend,targetCpa,targetAov,frequencyMax,type}=cfg;
+  const{killRoas,killSpend,targetCpa,targetAov,freqMax,type}=cfg;
   const k=data;const tasks=[];
-  const adsets=detail?.adsets||[];const ads=detail?.ads||[];
-  const heroAds=ads.filter(a=>a.purchases>0||a.verdict==='hero');
+  const ads=detail?.ads||[];const adsets=detail?.adsets||[];
+  const heroAds=ads.filter(a=>a.purchases>0||a.verdict==='top');
   const killAds=ads.filter(a=>a.purchases===0&&a.verdict==='kill');
-  const isRecent=!!dateLabel&&(dateLabel==='today'||dateLabel==='yesterday'||dateLabel.toLowerCase().includes('today'));
-  const lagPat=isRecent&&k.linkClicks>50&&k.lpv===0&&k.atc===0;
-  const bestAdset=adsets.filter(a=>a.hasSpend).sort((a,b)=>(a.cpc||999)-(b.cpc||999))[0];
-  if(k.status==='active_no_spend'){tasks.push({sev:'kill',phase:'today',n:1,title:'Campaign not delivering — diagnose now',steps:['Meta → this campaign → Ad sets tab → confirm all adset toggles are ON','Check Ads tab for "Processing" or "In Review" status','Check account-level billing cap in Meta Business Settings'],protect:null,verify:'Impressions > 0 by tomorrow morning'});return tasks;}
-  if(k.status==='paused'){tasks.push({sev:'amber',phase:'today',n:1,title:'Campaign paused',steps:['Restart only after fixing root cause','Rebuild with top 2 CTR creatives if no clear cause'],protect:null,verify:'Status shows Active in Meta'});return tasks;}
-  if(lagPat)tasks.push({sev:'amber',phase:'today',n:1,title:'Attribution lag — LPV/ATC/IC show 0 for same-day data (normal)',steps:['Meta has 24-48h delay on mid-funnel events — zeros are expected for today/yesterday','Spend, Clicks, Purchases are near-real-time','Switch to Last 3d or Last 7d for complete funnel data'],protect:null,verify:'Same period checked again tomorrow — funnel metrics will populate'});
-  const ks=killSpend||15000;
-  if(k.roas!==null&&k.spend>ks&&k.roas<killRoas){
-    const hasC=heroAds.length>0||(k.purchases||0)>0;
-    if(hasC&&killAds.length>0)tasks.push({sev:'red',phase:'today',n:2,title:'Pause '+killAds.length+' losing ad'+(killAds.length>1?'s':'')+' — keep campaign running',steps:['Meta → this campaign → "Ads for 1 Campaign" tab at the top',...killAds.slice(0,4).map(a=>'Toggle OFF: '+a.name+' (CTR '+a.ctr+'%, CPC ₹'+Math.round(a.cpc||0)+', 0 purchases)'),'Do NOT change adset budgets — >20% resets Meta learning phase'],protect:heroAds[0]?'Keep ON: '+heroAds[0].name+(heroAds[0].roas?' (ROAS '+heroAds[0].roas+'x)':''):null,verify:'Campaign CPC drops within 48h as budget concentrates on better ads'});
-    else if(!hasC)tasks.push({sev:'kill',phase:'today',n:2,title:'Kill trigger — 0 purchases at '+inr(k.spend)+'. Pause and rebuild.',steps:[heroAds[0]?'Screenshot "'+heroAds[0].name+'" settings — use in rebuild':'Note top 2 ads by CTR before pausing','Meta → campaign toggle → OFF','Rebuild: 1 adset, top 2 CTR creatives, ₹7,000/day'],protect:null,verify:'Spend drops to ₹0 within 60 seconds'});
+  const rec=!!dateLabel&&(dateLabel==='today'||dateLabel==='yesterday');
+  const lag=rec&&k.linkClicks>50&&k.lpv===0&&k.atc===0;
+  const bestAs=adsets.filter(a=>a.hasSpend).sort((a,b)=>(a.cpc||999)-(b.cpc||999))[0];
+  if(k.status==='active_no_spend'){tasks.push({sev:'kill',phase:'today',n:1,title:'Campaign not delivering',steps:['Meta → Ad sets tab → confirm all toggles ON','Check Ads tab for "Processing" or "In Review"','Check billing cap in Meta Business Settings'],verify:'Impressions > 0 by tomorrow'});return tasks;}
+  if(lag)tasks.push({sev:'amber',phase:'today',n:1,title:'Attribution lag — LPV/ATC/IC show 0 for same-day data',steps:['Meta has 24-48h delay on mid-funnel events','Purchases and Spend are near-real-time','Switch to Last 3d for complete funnel data'],verify:'Same period tomorrow — metrics will populate'});
+  if(k.roas!==null&&k.spend>(killSpend||15000)&&k.roas<killRoas){
+    const hasC=k.purchases>0;
+    if(hasC&&killAds.length>0)tasks.push({sev:'red',phase:'today',n:2,title:'Pause '+killAds.length+' losing ad'+(killAds.length>1?'s':'')+' — keep campaign running',steps:['Meta → campaign → "Ads for 1 Campaign" tab',...killAds.slice(0,4).map(a=>`Toggle OFF: ${a.name} (CTR ${a.ctr}%, CPC ${inr(a.cpc)}, 0 purchases)`),'Do NOT change adset budgets — resets learning phase'],protect:heroAds[0]?`Keep ON: ${heroAds[0].name}`:null,verify:'Campaign CPC drops within 48h'});
+    else if(!hasC)tasks.push({sev:'kill',phase:'today',n:2,title:`Kill trigger — 0 purchases at ${inr(k.spend)}. Pause and rebuild.`,steps:['Note top 2 CTR ads before pausing','Meta → campaign toggle → OFF','Rebuild: 1 adset, 2 best creatives, ₹7,000/day'],verify:'Spend drops to ₹0 within 60 seconds'});
   }
   const atcT=k.atc||adsets.reduce((s,a)=>s+(a.atc||0),0);
-  if(!lagPat&&atcT>=3&&(k.ic||0)===0)tasks.push({sev:'red',phase:'today',n:3,title:'GoKwik pixel not attributing checkout events to this campaign',steps:['GoKwik Dashboard → Checkout Settings → Integrations → Meta Ads → confirm Pixel ID and Access Token are saved','Enable fbclid passthrough: GoKwik → Settings → URL Parameters → enable "Pass fbclid" parameter','Without fbclid, GoKwik IC events fire in Events Manager but are NOT attributed to any ad click → shows 0 in campaign','Meta → Events Manager → Test Events → complete a checkout → confirm InitiateCheckout appears'],protect:null,verify:'IC events appear in campaign insights within 24h of enabling fbclid passthrough'});
-  if(k.icToPurchase!==null&&k.icToPurchase<40&&(k.ic||0)>1)tasks.push({sev:'red',phase:'today',n:3,title:'Payment failures — '+k.icToPurchase+'% IC→Purchase (target 65%)',steps:['Razorpay Dashboard → Reports → Payments → check Failed column','Enable all payment methods: UPI + NetBanking + Cards','BiteSpeed: set abandoned checkout WhatsApp flow 1h after IC without purchase'],protect:null,verify:'IC→Purchase improves toward 60%+ within 48h'});
-  if(killAds.length>0&&!tasks.some(t=>t.n===2&&t.title.includes('losing')))tasks.push({sev:'red',phase:'today',n:4,title:'Pause '+killAds.length+' kill-candidate ad'+(killAds.length>1?'s':''),steps:['Meta → campaign → "Ads for 1 Campaign" tab',...killAds.slice(0,4).map(a=>'Toggle OFF: '+a.name+' (CTR '+a.ctr+'%, CPC ₹'+Math.round(a.cpc||0)+')')],protect:heroAds[0]?'Keep ON: '+heroAds[0].name:null,verify:'Campaign CPC drops within 24h'});
-  if(heroAds.length>0){const h=heroAds.find(a=>a.verdict==='hero')||heroAds[0];if(h){const b=bestAdset?.dailyBudget?Math.round(bestAdset.dailyBudget*0.6):3000;tasks.push({sev:'amber',phase:'next48',n:5,title:'Scale hero ad in its own adset',steps:['Meta: find "'+h.name+'" → duplicate','Create NEW adset — same targeting, budget ₹'+b.toLocaleString('en-IN')+'/day','Add ONLY this one ad to the new adset','Brief 2 hook variants alongside it'],protect:'CTR '+h.ctr+'%, CPC ₹'+Math.round(h.cpc||0)+' — 2x better than average. Solo budget prevents competing for delivery.',verify:'New adset CPC within 20% of ₹'+Math.round(h.cpc||0)+' after 3 days'});}}
-  if(k.aov&&k.aov<targetAov&&type==='prospecting')tasks.push({sev:'amber',phase:'week1',n:6,title:'Lift AOV '+inr(k.aov)+' → '+inr(targetAov)+' — Core Pair bundle is live',steps:['Core Pair (Buy 2 at ₹7,800) is live at prettypixie.com/collections/core-pair','Change ad destination URL → prettypixie.com/collections/core-pair (NOT single product page)','Ad hook: "2 dresses for ₹7,800" in first 3 seconds. CTA: Shop the Core Pair','Prepaid 10% off → customer pays ₹7,020 → net AOV at 2x current ₹'+Math.round(k.aov||0).toLocaleString('en-IN')],protect:null,verify:'Shopify Analytics → Average Order Value. Target ₹'+targetAov.toLocaleString('en-IN')+' within 14 days'});
-  if((k.frequency||0)>frequencyMax)tasks.push({sev:'amber',phase:'next48',n:7,title:'Refresh creatives — frequency '+k.frequency+'x at cap',steps:['Brief 2 new ads: different hook, different product angle','Upload alongside current ads — do NOT pause old ones first','After 72h: pause lowest-CTR old ads'],protect:null,verify:'Frequency falls below '+frequencyMax+'x and CPM stabilises'});
+  if(!lag&&atcT>=3&&(k.ic||0)===0)tasks.push({sev:'red',phase:'today',n:3,title:'GoKwik not attributing checkout events',steps:['GoKwik Dashboard → Integrations → Meta Ads → confirm Pixel ID + Token saved','Enable fbclid passthrough: GoKwik → Settings → URL Parameters → "Pass fbclid"','Without fbclid, IC events fire in Events Manager but are NOT attributed to ad clicks','Meta → Events Manager → Test Events → complete a checkout → confirm InitiateCheckout appears'],verify:'IC events in campaign insights within 24h of enabling fbclid'});
+  if(k.icToPurchase!==null&&k.icToPurchase<40&&(k.ic||0)>1)tasks.push({sev:'red',phase:'today',n:3,title:`Payment failures — ${k.icToPurchase}% IC→Purchase (target 65%)`,steps:['Razorpay → Reports → Payments → check Failed column','Enable all payment methods: UPI + NetBanking + Cards','BiteSpeed: abandoned checkout WhatsApp 1h after IC without purchase'],verify:'IC→Purchase improves toward 60%+ within 48h'});
+  if(killAds.length>0&&!tasks.some(t=>t.n===2&&t.title.includes('losing')))tasks.push({sev:'red',phase:'today',n:4,title:`Pause ${killAds.length} kill-candidate ad${killAds.length>1?'s':''}`,steps:['Meta → campaign → Ads tab',...killAds.slice(0,4).map(a=>`Toggle OFF: ${a.name}`)],protect:heroAds[0]?`Keep ON: ${heroAds[0].name}`:null,verify:'CPC drops within 24h'});
+  if(heroAds.length>0){const h=heroAds.find(a=>a.verdict==='top')||heroAds[0];const b=bestAs?.dailyBudget?Math.round(bestAs.dailyBudget*0.6):3000;tasks.push({sev:'amber',phase:'next48',n:5,title:'Scale hero ad in its own adset',steps:[`Meta: find "${h.name}" → duplicate`,`Create NEW adset — same targeting, ₹${b.toLocaleString('en-IN')}/day`,'Add ONLY this ad to the new adset','Brief 2 hook variants alongside it'],protect:`CTR ${h.ctr}%, CPC ${inr(h.cpc)} — 2x better than avg. Solo budget → more efficient delivery.`,verify:`New adset CPC within 20% of ${inr(h.cpc)} after 3 days`});}
+  if(k.aov&&k.aov<targetAov&&type==='prospecting')tasks.push({sev:'amber',phase:'week1',n:6,title:`Lift AOV ${inr(k.aov)} → ${inr(targetAov)} — Core Pair bundle`,steps:['Core Pair (Buy 2 at ₹7,800) live at prettypixie.com/collections/core-pair','Change ad destination URL → /collections/core-pair (NOT single product)','Hook: "2 dresses for ₹7,800" in first 3 seconds. CTA: Shop the Core Pair',`Prepaid 10% off → ₹7,020 net. 2x current AOV ₹${Math.round(k.aov||0).toLocaleString('en-IN')}`],verify:'Shopify Analytics → AOV. Target ₹'+targetAov.toLocaleString('en-IN')+' within 14 days'});
+  if((k.frequency||0)>freqMax)tasks.push({sev:'amber',phase:'next48',n:7,title:`Refresh creatives — frequency ${k.frequency}x at cap`,steps:['Brief 2 new ads: different hook, different angle','Upload alongside current — do NOT pause old ones first','After 72h: pause lowest-CTR old ads'],verify:'Frequency falls below '+freqMax+'x'});
   if(type==='legacy'){
-    if((k.roas||0)<1.0&&k.spend>1000)tasks.push({sev:'kill',phase:'today',n:1,title:'Pause now — losing money on every rupee',steps:['Meta → toggle campaign OFF','Revenue < Spend = losing before COGS. Nothing to fix here.','Archive after 7 days'],protect:null,verify:'Spend drops to ₹0 within 60 seconds'});
-    else tasks.push({sev:'red',phase:'today',n:1,title:'Migrate to C-slot or archive',steps:[(k.roas||0)>=1.5?'Document which adset/creative drives ROAS before touching anything':null,'Option A: rename to C-slot pattern (C1_BROAD_...) — appears in matrix','Option B: archive — removes account ROAS drag'].filter(Boolean),protect:(k.roas||0)>=1.5?'Replicate winning structure in proper C-slot BEFORE archiving':null,verify:'Campaign in C1-C9 matrix OR archived in Meta'});
+    if((k.roas||0)<1.0&&k.spend>1000)tasks.push({sev:'kill',phase:'today',n:1,title:'Pause now — losing money',steps:['Meta → toggle campaign OFF','Revenue < Spend = losing before COGS','Archive after 7 days'],verify:'Spend drops to ₹0 within 60s'});
+    else tasks.push({sev:'red',phase:'today',n:1,title:'Migrate to C-slot or archive',steps:[(k.roas||0)>=1.5?'Document which adset/creative drives ROAS first':null,'Option A: rename to C-slot pattern — appears in matrix','Option B: archive — removes account ROAS drag'].filter(Boolean),protect:(k.roas||0)>=1.5?'Replicate winning structure in C-slot BEFORE archiving':null,verify:'Campaign in C1-C9 matrix OR archived in Meta'});
   }
   return tasks.filter(Boolean);
 }
 
-// ── Login Gate ──────────────────────────────────────────────────────
-function LoginGate({onLogin}){
-  const[pw,setPw]=useState('');const[tok,setTok]=useState('');const[err,setErr]=useState('');
-  const go=()=>{
-    if(pw!==DASH_PASS){setErr('Wrong password');return;}
-    if(!tok.trim()){setErr('Enter Meta Access Token');return;}
-    sessionStorage.setItem('ff_unlock','1');
-    sessionStorage.setItem('meta_token',tok.trim());
-    onLogin(tok.trim());
+// ── Token Gate ───────────────────────────────────────────────────────
+function TokenGate({onLogin}){
+  const[tok,setTok]=useState('');const[err,setErr]=useState('');const[testing,setTesting]=useState(false);
+  const go=async()=>{
+    if(!tok.trim()){setErr('Paste your Meta Access Token');return;}
+    setTesting(true);setErr('');
+    try{
+      const r=await fetch(`${BASE}/me?fields=name&access_token=${tok.trim()}`);
+      const d=await r.json();
+      if(d.error)throw new Error(d.error.message);
+      localStorage.setItem('meta_token',tok.trim());
+      onLogin(tok.trim());
+    }catch(e){setErr('Token invalid: '+e.message);}
+    finally{setTesting(false);}
   };
   return(
-    <div className="min-h-screen flex items-center justify-center bg-black">
-      <div className="w-96 space-y-5 p-8 border border-stone-800 bg-stone-950">
-        <div className="text-center mb-6">
-          <div className="text-[9px] tracking-[0.3em] text-stone-600 uppercase mb-1">Pretty Pixie · Fashion Forever Trends</div>
-          <div className="text-xl font-semibold text-stone-100">9-Campaign Live Dashboard</div>
+    <div className="min-h-screen flex items-center justify-center bg-black px-4">
+      <div className="w-full max-w-md space-y-6 p-8 border border-stone-800 bg-stone-950">
+        <div className="text-center">
+          <div className="text-[9px] tracking-[0.3em] text-stone-600 uppercase mb-2">Pretty Pixie · Fashion Forever Trends</div>
+          <div className="text-2xl font-bold text-stone-100">Campaign Dashboard</div>
+          <div className="text-[11px] text-stone-500 mt-1">Enter your Meta System User token to continue</div>
         </div>
         <div>
-          <label className="block text-[10px] text-stone-500 uppercase tracking-widest mb-1.5">Dashboard Password</label>
-          <input type="password" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==='Enter'&&document.getElementById('tok').focus()} className="w-full bg-stone-900 border border-stone-700 text-stone-100 px-3 py-2 text-sm outline-none focus:border-stone-500 rounded-sm" placeholder="••••••••••"/>
+          <label className="block text-[10px] text-stone-500 uppercase tracking-widest mb-2">Meta Access Token</label>
+          <textarea value={tok} onChange={e=>setTok(e.target.value)} rows={4} className="w-full bg-stone-900 border border-stone-700 text-stone-100 px-3 py-2 text-xs outline-none focus:border-amber-600 rounded-sm mono resize-none" placeholder="EAAQzImg59n..."/>
+          <div className="text-[9px] text-stone-600 mt-1.5">Meta Business → System Users → Dashboard_Reader → Generate Token · Stored in this browser only</div>
         </div>
-        <div>
-          <label className="block text-[10px] text-stone-500 uppercase tracking-widest mb-1.5">Meta Access Token</label>
-          <textarea id="tok" value={tok} onChange={e=>setTok(e.target.value)} rows={3} className="w-full bg-stone-900 border border-stone-700 text-stone-100 px-3 py-2 text-xs outline-none focus:border-stone-500 rounded-sm mono resize-none" placeholder="EAAQzImg59n..."/>
-          <div className="text-[9px] text-stone-600 mt-1">Meta Business → System Users → Dashboard_Reader → Generate Token. Stored in browser session only.</div>
-        </div>
-        {err&&<div className="text-red-400 text-xs text-center">{err}</div>}
-        <button onClick={go} className="w-full bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold py-2.5 text-sm rounded-sm transition-colors uppercase tracking-widest">
-          Access Dashboard
+        {err&&<div className="px-3 py-2 bg-red-950/30 border border-red-800 text-red-300 text-xs">{err}</div>}
+        <button onClick={go} disabled={testing} className="w-full bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-stone-950 font-bold py-3 text-sm rounded-sm transition-colors uppercase tracking-widest">
+          {testing?<><span className="spin">↻</span> Verifying…</>:'Connect Dashboard'}
         </button>
       </div>
     </div>
   );
 }
 
-// ── UI Components ───────────────────────────────────────────────────
-function KpiCard({label,value,sub,status='neutral'}){
+// ── Compact KPI Strip ────────────────────────────────────────────────
+function Kpi({label,value,sub,status}){
   const c={good:'text-emerald-400',warn:'text-amber-400',bad:'text-red-400',neutral:'text-stone-100'};
-  return(<div className="bg-stone-900/50 border border-stone-800/60 px-4 py-3"><div className="text-[9px] text-stone-500 uppercase tracking-widest mb-1">{label}</div><div className={`text-xl font-bold mono ${c[status]}`}>{value}</div>{sub&&<div className="text-[10px] text-stone-600 mt-0.5">{sub}</div>}</div>);
+  return(<div className="flex flex-col px-4 py-3 border-r border-stone-800/60 last:border-r-0"><div className="text-[9px] text-stone-600 uppercase tracking-widest mb-0.5">{label}</div><div className={`text-xl font-bold mono ${c[status||'neutral']}`}>{value}</div>{sub&&<div className="text-[9px] text-stone-600 mt-0.5">{sub}</div>}</div>);
 }
-function DailyPaceTracker({dailyData}){
+
+// ── Phase Tracker ─────────────────────────────────────────────────────
+function PhaseTracker({dailyData}){
   if(!dailyData?.length)return null;
   const now=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Kolkata'}));
   const dn=Math.max(1,Math.floor((now-PHASE1_START)/86400000)+1);
   const pi=dn<=30?0:dn<=60?1:2;const ph=PHASES[pi];
-  const pd=pi===0?dn:pi===1?dn-30:dn-60;
-  const pp=Math.min(Math.round((pd/ph.days)*100),100);
-  const dl=Math.max(0,ph.days-pd);
+  const pd=pi===0?dn:pi===1?dn-30:dn-60;const pp=Math.min(Math.round((pd/ph.days)*100),100);
   const l7=dailyData.filter(d=>d.spend>0).slice(-7);
-  const ts=l7.reduce((s,d)=>s+(d.spend||0),0);const tr=l7.reduce((s,d)=>s+(d.revenue||0),0);
+  const ts=l7.reduce((s,d)=>s+(d.spend||0),0),tr=l7.reduce((s,d)=>s+(d.revenue||0),0);
   const t7=ts>0?+(tr/ts).toFixed(2):null;
-  const gap=t7!==null?+(ph.target-t7).toFixed(2):null;
   const pace=t7===null?'nodata':t7>=ph.target?'ahead':t7>=ph.kill?'onpace':'behind';
-  const ps={ahead:'text-emerald-400',onpace:'text-amber-400',behind:'text-red-400',nodata:'text-stone-500'};
-  const pl={ahead:'↑ AHEAD',onpace:'→ ON PACE',behind:'↓ BEHIND',nodata:'— NO DATA'};
-  const cd=dailyData.slice(-14);const mr=Math.max(ph.target*1.4,...cd.map(d=>d.roas||0),0.5);
-  const W=540,H=64,P=8,n=cd.length,bw=n>0?Math.floor((W-P*2)/n-1.5):0;
+  const pc={ahead:'text-emerald-400',onpace:'text-amber-400',behind:'text-red-400',nodata:'text-stone-600'};
+  const pl={ahead:'↑ AHEAD OF TARGET',onpace:'→ ON PACE',behind:'↓ BEHIND TARGET',nodata:'NO DATA YET'};
+  const cd=dailyData.slice(-14);const mr=Math.max(ph.target*1.5,...cd.map(d=>d.roas||0),0.5);
+  const W=480,H=56,P=6,n=cd.length,bw=n>0?Math.floor((W-P*2)/n-2):0;
+  const [open,setOpen]=useState(true);
   return(
-    <div className="mx-4 mb-4 border border-stone-800/60 bg-stone-950/60">
-      <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-3 border-b border-stone-800/40">
-        <div className="flex items-center gap-5">
-          <div>
-            <div className="text-[9px] text-stone-500 uppercase tracking-widest">Phase {ph.n} · Days {pi*30+1}–{(pi+1)*30}</div>
-            <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="text-2xl font-bold mono text-stone-100">Day {pd}</span>
-              <span className="text-stone-600 text-sm">/ {ph.days}</span>
-              {dl>0&&<span className="text-stone-600 text-xs ml-1">{dl}d left</span>}
-            </div>
-          </div>
-          <div className="hidden sm:block">
-            <div className="text-[9px] text-stone-600 mb-1">{pp}% complete</div>
-            <div className="w-32 h-1.5 bg-stone-800 rounded-full overflow-hidden"><div className="h-full bg-amber-600/80 rounded-full" style={{width:pp+'%'}}/></div>
+    <div className="border border-stone-800/60 bg-stone-950/60 mb-3">
+      <div className="flex items-center justify-between px-5 py-3 cursor-pointer hover:bg-stone-900/20" onClick={()=>setOpen(!open)}>
+        <div className="flex items-center gap-6">
+          <div><div className="text-[9px] text-stone-600 uppercase tracking-widest">Phase {ph.n} Progress</div><div className="flex items-baseline gap-1.5 mt-0.5"><span className="text-xl font-bold mono text-stone-100">Day {pd}</span><span className="text-stone-600 text-xs">/ {ph.days}</span><span className={`text-xs font-semibold ml-2 ${pc[pace]}`}>{pl[pace]}</span></div></div>
+          <div className="hidden sm:flex items-center gap-4">
+            <div><div className="text-[9px] text-stone-600">7-Day ROAS</div><div className={`text-xl font-bold mono ${t7>=ph.target?'text-emerald-400':t7>=ph.kill?'text-amber-400':t7>0?'text-red-400':'text-stone-600'}`}>{t7!==null?t7+'x':'—'}</div></div>
+            <div><div className="text-[9px] text-stone-600">Target</div><div className="text-xl font-bold mono text-stone-500">{ph.target}x</div></div>
+            {t7!==null&&<div><div className="text-[9px] text-stone-600">Gap</div><div className={`text-base font-bold mono ${t7>=ph.target?'text-emerald-400':'text-red-400'}`}>{t7>=ph.target?'+'+Math.abs(+(t7-ph.target).toFixed(2))+'x':'-'+Math.abs(+(ph.target-t7).toFixed(2))+'x'}</div></div>}
           </div>
         </div>
-        <div className="flex items-center gap-5">
-          <div className="text-right"><div className="text-[9px] text-stone-500 uppercase tracking-widest">7-Day ROAS</div><div className={`text-2xl font-bold mono ${t7>=ph.target?'text-emerald-400':t7>=ph.kill?'text-amber-400':t7>0?'text-red-400':'text-stone-600'}`}>{t7!==null?t7+'x':'—'}</div></div>
-          <div className="text-right"><div className="text-[9px] text-stone-500 uppercase tracking-widest">Target</div><div className="text-2xl font-bold mono text-stone-500">{ph.target}x</div></div>
-          {gap!==null&&<div className="text-right"><div className="text-[9px] text-stone-500 uppercase tracking-widest">Gap</div><div className={`text-lg font-bold mono ${gap<=0?'text-emerald-400':'text-red-400'}`}>{gap<=0?'+'+Math.abs(gap)+'x':'-'+gap+'x'}</div></div>}
-          <div className={`text-xs font-bold px-2.5 py-1 border ${pace==='ahead'?'border-emerald-800 bg-emerald-950/40 text-emerald-400':pace==='onpace'?'border-amber-800 bg-amber-950/40 text-amber-400':pace==='behind'?'border-red-800 bg-red-950/40 text-red-400':'border-stone-700 text-stone-500'}`}>{pl[pace]}</div>
-        </div>
+        <div className="flex items-center gap-3"><div className="hidden sm:block w-24 h-1.5 bg-stone-800 rounded-full overflow-hidden"><div className="h-full bg-amber-600/80 rounded-full" style={{width:pp+'%'}}/></div><span className="text-stone-600 text-sm">{open?'▲':'▼'}</span></div>
       </div>
-      <div className="px-5 pt-3 pb-1">
-        <svg viewBox={`0 0 ${W} ${H+18}`} className="w-full" style={{maxHeight:'100px'}}>
-          <line x1={P} y1={H-(ph.kill/mr)*H} x2={W-P} y2={H-(ph.kill/mr)*H} stroke="#7c2d12" strokeWidth="1" strokeDasharray="3,3"/><text x={W-P-2} y={H-(ph.kill/mr)*H-3} fill="#7c2d12" fontSize="7" textAnchor="end">kill {ph.kill}x</text>
-          <line x1={P} y1={H-(ph.target/mr)*H} x2={W-P} y2={H-(ph.target/mr)*H} stroke="#d97706" strokeWidth="1.5" strokeDasharray="5,3"/><text x={W-P-2} y={H-(ph.target/mr)*H-3} fill="#d97706" fontSize="7" textAnchor="end">target {ph.target}x</text>
+      {open&&<div className="border-t border-stone-800/40 px-5 pt-3 pb-4 slide-down">
+        <svg viewBox={`0 0 ${W} ${H+16}`} className="w-full" style={{maxHeight:'88px'}}>
+          <line x1={P} y1={H-(ph.kill/mr)*H} x2={W-P} y2={H-(ph.kill/mr)*H} stroke="#7c2d12" strokeWidth="1" strokeDasharray="3,3"/>
+          <text x={W-P-2} y={H-(ph.kill/mr)*H-3} fill="#7c2d12" fontSize="7" textAnchor="end">kill {ph.kill}x</text>
+          <line x1={P} y1={H-(ph.target/mr)*H} x2={W-P} y2={H-(ph.target/mr)*H} stroke="#d97706" strokeWidth="1.5" strokeDasharray="5,3"/>
+          <text x={W-P-2} y={H-(ph.target/mr)*H-3} fill="#d97706" fontSize="7" textAnchor="end">target {ph.target}x</text>
           {cd.map((d,i)=>{const r=d.roas||0;const bh=r>0?Math.max((r/mr)*H,3):2;const x=P+i*((W-P*2)/n);const col=r>=ph.target?'#10b981':r>=ph.kill?'#d97706':r>0?'#ef4444':'#292524';const dt=new Date(d.date+'T12:00:00');return(<g key={i}><rect x={x+1} y={H-bh} width={bw} height={bh} fill={col} opacity="0.85" rx="1"/>{r>0&&<text x={x+1+bw/2} y={H-bh-3} fill={col} fontSize="7" textAnchor="middle">{r.toFixed(1)}x</text>}<text x={x+1+bw/2} y={H+13} fill="#57534e" fontSize="7" textAnchor="middle">{dt.toLocaleDateString('en-IN',{day:'numeric',month:'short'})}</text></g>);})}
         </svg>
-      </div>
-      <div className="px-5 pb-4 overflow-x-auto">
-        <table className="w-full text-[11px]">
-          <thead><tr className="border-b border-stone-800/50">{['Date','Spend','Revenue','ROAS','Orders','CPA','AOV'].map(h=>(<th key={h} className={'py-1 font-normal text-stone-600 '+(h==='Date'?'text-left':'text-right')}>{h}</th>))}</tr></thead>
-          <tbody>{[...dailyData].filter(d=>d.spend>0||d.purchases>0).reverse().slice(0,7).map((d,i)=>{const r=d.roas||0;const cl=r>=ph.target?'text-emerald-400 font-bold':r>=ph.kill?'text-amber-400 font-bold':r>0?'text-red-400 font-bold':'text-stone-600';const dt=new Date(d.date+'T12:00:00');const it=dt.toDateString()===now.toDateString();return(<tr key={i} className={'border-b border-stone-800/20 '+(it?'bg-stone-800/30':'hover:bg-stone-800/10')}><td className="py-1.5 text-stone-400">{dt.toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'})}{it&&<span className="ml-1 text-[9px] text-amber-500 font-bold">TODAY</span>}</td><td className="py-1.5 text-right mono text-stone-300">{inr(d.spend)}</td><td className="py-1.5 text-right mono text-stone-300">{inr(d.revenue)}</td><td className={'py-1.5 text-right mono '+cl}>{r>0?r+'x':'—'}</td><td className="py-1.5 text-right mono text-stone-400">{d.purchases||0}</td><td className="py-1.5 text-right mono text-stone-500">{d.cpa?inr(d.cpa):'—'}</td><td className="py-1.5 text-right mono text-stone-500">{d.aov?inr(d.aov):'—'}</td></tr>);})}
-          </tbody>
-          {(()=>{const r=dailyData.filter(d=>d.spend>0||d.purchases>0).slice(-7);const ts2=r.reduce((s,d)=>s+(d.spend||0),0);const tr2=r.reduce((s,d)=>s+(d.revenue||0),0);const tp=r.reduce((s,d)=>s+(d.purchases||0),0);const rr=ts2>0?+(tr2/ts2).toFixed(2):0;const cl=rr>=ph.target?'text-emerald-400':rr>=ph.kill?'text-amber-400':rr>0?'text-red-400':'text-stone-600';return(<tfoot><tr className="border-t border-stone-700/60 bg-stone-900/40"><td className="py-1.5 text-stone-500 text-xs font-medium">7-day total</td><td className="py-1.5 text-right mono text-stone-200 font-semibold">{inr(ts2)}</td><td className="py-1.5 text-right mono text-stone-200 font-semibold">{inr(tr2)}</td><td className={'py-1.5 text-right mono font-bold '+cl}>{rr>0?rr+'x':'—'}</td><td className="py-1.5 text-right mono text-stone-300 font-semibold">{tp}</td><td className="py-1.5 text-right mono text-stone-500">{tp>0?inr(Math.round(ts2/tp)):'—'}</td><td className="py-1.5 text-right mono text-stone-500">{tp>0?inr(Math.round(tr2/tp)):'—'}</td></tr></tfoot>);})()} 
-        </table>
-      </div>
+        <div className="mt-2 overflow-x-auto">
+          <table className="w-full text-[11px]">
+            <thead><tr className="border-b border-stone-800/50">{['Date','Spend','Revenue','ROAS','Orders','CPA','AOV'].map(h=>(<th key={h} className={`py-1 font-normal text-stone-600 ${h==='Date'?'text-left':'text-right'}`}>{h}</th>))}</tr></thead>
+            <tbody>{[...dailyData].filter(d=>d.spend>0||d.purchases>0).reverse().slice(0,7).map((d,i)=>{const r=d.roas||0;const cl=r>=ph.target?'text-emerald-400 font-bold':r>=ph.kill?'text-amber-400 font-bold':r>0?'text-red-400 font-bold':'text-stone-600';const dt=new Date(d.date+'T12:00:00');const it=dt.toDateString()===now.toDateString();return(<tr key={i} className={`border-b border-stone-800/20 ${it?'bg-amber-950/20':''}`}><td className="py-1.5 text-stone-400">{dt.toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'})}{it&&<span className="ml-1 text-[9px] text-amber-500 font-bold">TODAY</span>}</td><td className="py-1.5 text-right mono text-stone-300">{inr(d.spend)}</td><td className="py-1.5 text-right mono text-stone-300">{inr(d.revenue)}</td><td className={'py-1.5 text-right mono '+cl}>{r>0?r+'x':'—'}</td><td className="py-1.5 text-right mono text-stone-400">{d.purchases||0}</td><td className="py-1.5 text-right mono text-stone-500">{d.cpa?inr(d.cpa):'—'}</td><td className="py-1.5 text-right mono text-stone-500">{d.aov?inr(d.aov):'—'}</td></tr>);})}
+            </tbody>
+          </table>
+        </div>
+      </div>}
     </div>
   );
 }
-function FunnelViz({data,dateLabel}){
-  if(!data)return null;
-  const steps=[{l:'Impressions',v:data.impressions,p:null,note:null,ctr:false},{l:'Link clicks',v:data.linkClicks,p:data.impressions,note:'CTR',ctr:true},{l:'Landing page views',v:data.lpv,p:data.linkClicks,note:'LP load',ctr:false},{l:'View content',v:data.vc,p:data.lpv,note:'Product page',ctr:false},{l:'Add to cart',v:data.atc,p:data.vc||data.lpv,note:'Intent',ctr:false},{l:'Initiate checkout',v:data.ic,p:data.atc,note:'GoKwik',ctr:false},{l:'Purchases',v:data.purchases,p:data.ic,note:'Razorpay',ctr:false}];
+
+// ── Funnel ────────────────────────────────────────────────────────────
+function Funnel({data,dateLabel}){
+  const steps=[{l:'Impressions',v:data.impressions,p:null,ctr:false},{l:'Link clicks',v:data.linkClicks,p:data.impressions,note:'CTR',ctr:true},{l:'Landing page views',v:data.lpv,p:data.linkClicks,note:'LP load',ctr:false},{l:'View content',v:data.vc,p:data.lpv,note:'Product page',ctr:false},{l:'Add to cart',v:data.atc,p:data.vc||data.lpv,note:'Intent',ctr:false},{l:'Initiate checkout',v:data.ic,p:data.atc,note:'GoKwik',ctr:false},{l:'Purchases',v:data.purchases,p:data.ic,note:'Razorpay',ctr:false}];
   const max=data.impressions||1;
-  const rec=!!dateLabel&&(dateLabel==='today'||dateLabel==='yesterday'||dateLabel.toLowerCase().includes('today'));
+  const rec=!!dateLabel&&(dateLabel==='today'||dateLabel==='yesterday');
   const lag=rec&&(data.linkClicks||0)>50&&(data.lpv||0)===0;
   const gap=!rec&&(data.purchases||0)>0&&(data.lpv||0)===0&&(data.atc||0)===0;
-  return(
-    <div className="bg-stone-900/50 border border-stone-800 p-5">
-      <div className="flex items-baseline justify-between mb-3"><h3 className="font-semibold text-stone-100">Conversion funnel</h3><span className="text-[9px] uppercase tracking-widest text-stone-600">where money leaks</span></div>
-      {lag&&<div className="mb-3 px-3 py-2 bg-amber-950/30 border border-amber-900/40 text-[11px] text-amber-400">⏳ Attribution lag — LPV/ATC/IC update within 24-48h for same-day data. Switch to Last 3d for complete funnel.</div>}
-      {gap&&<div className="mb-3 px-3 py-2 bg-stone-800/60 border border-stone-700/40 text-[11px] text-stone-400">◎ Mid-funnel not attributed to this campaign. GoKwik CAPI requires fbclid passthrough to match events to ad clicks. See action plan — enable fbclid in GoKwik settings.</div>}
-      <div className="space-y-2">
-        {steps.map((s,i)=>{
-          const w=max>0?(s.v/max)*100:0;
-          const ct=s.ctr&&s.p>0?(s.v/s.p*100):null;
-          const dr=!s.ctr&&s.p>0&&s.v>=0?((s.p-s.v)/s.p*100):0;
-          const lk=!s.ctr&&dr>50&&i>=2&&s.p>0&&s.v>0;
-          const iz=s.v===0&&i>0;const ip=i===steps.length-1;
-          return(<div key={s.l}>
-            <div className="flex items-center justify-between text-xs mb-0.5">
-              <div className="flex items-center gap-1.5"><span className="text-stone-300 font-medium">{s.l}</span>{s.note&&<span className="text-[9px] text-stone-600 uppercase tracking-widest">{s.note}</span>}</div>
-              <div className="flex items-center gap-2">
-                {ct!==null&&<span className={'mono text-[11px] font-semibold '+(ct>=2?'text-emerald-400':ct>=1?'text-amber-400':'text-red-400')}>CTR {ct.toFixed(2)}%</span>}
-                {!s.ctr&&dr>0&&s.v>0&&<span className={'mono text-[11px] '+(lk?'text-red-400 font-semibold':'text-stone-500')}>{lk?'⚠ ':''}-{dr.toFixed(0)}%</span>}
-                <span className="mono text-stone-100 font-semibold w-14 text-right">{num(s.v)}</span>
-              </div>
-            </div>
-            <div className="h-5 bg-stone-950/60 relative overflow-hidden border-l-2 border-stone-800/60">
-              <div className={'h-full '+(s.ctr?(ct>=2?'bg-emerald-800/50':ct>=1?'bg-amber-800/50':'bg-red-900/50'):iz?'bg-stone-800/30':lk?'bg-red-900/60':ip?'bg-emerald-900/50':'bg-amber-800/40')} style={{width:s.ctr?Math.max(w*8,1)+'%':Math.max(w,iz?0:0.5)+'%'}}/>
-              {lk&&<div className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] uppercase tracking-widest text-red-200 font-bold">Critical leak</div>}
-              {iz&&<div className={'absolute right-2 top-1/2 -translate-y-1/2 text-[9px] uppercase tracking-widest font-medium '+(lag?'text-amber-600':gap?'text-stone-500':'text-stone-600')}>{lag?'⏳ Lag':gap?'Not attributed':'0'}</div>}
-            </div>
-          </div>);
-        })}
-      </div>
-      <div className="mt-3 space-y-1.5">
-        {(data.linkClicks||0)>0&&(data.lpv||0)>0&&((data.linkClicks-data.lpv)/data.linkClicks)>0.25&&<div className="text-[11px] text-red-300 border-l-2 border-red-800 pl-2">LP drop {(((data.linkClicks-data.lpv)/data.linkClicks)*100).toFixed(0)}% — acceptable ≤25%. Test mobile 4G load speed. Target LCP &lt;3s.</div>}
-        {(data.atc||0)>3&&(data.ic||0)===0&&!lag&&!gap&&<div className="text-[11px] text-amber-300 border-l-2 border-amber-800 pl-2">{data.atc} ATCs, 0 IC — enable fbclid passthrough in GoKwik → Integrations → Meta Ads.</div>}
-        {(data.atc||0)>0&&(data.ic||0)>0&&(data.atc-data.ic)/data.atc>0.65&&<div className="text-[11px] text-amber-300 border-l-2 border-amber-800 pl-2">ATC→IC {(data.ic/data.atc*100).toFixed(0)}% — {(100-data.ic/data.atc*100).toFixed(0)}% not reaching GoKwik checkout.</div>}
-        {(data.ic||0)>0&&((data.ic-data.purchases)/data.ic)>0.55&&<div className="text-[11px] text-red-300 border-l-2 border-red-800 pl-2">IC→Purchase {(data.purchases/data.ic*100).toFixed(0)}% — Razorpay payment failures. Check dashboard for UPI/OTP errors.</div>}
-      </div>
+  return(<div className="space-y-2">
+    {lag&&<div className="px-3 py-2 bg-amber-950/30 border border-amber-900/40 text-[11px] text-amber-400 mb-2">⏳ Attribution lag — LPV/ATC/IC update within 24-48h for same-day data. Switch to Last 3d for complete funnel.</div>}
+    {gap&&<div className="px-3 py-2 bg-stone-800/60 border border-stone-700/40 text-[11px] text-stone-400 mb-2">◎ Mid-funnel not attributed — GoKwik needs fbclid passthrough to match IC events to ad clicks. See action plan.</div>}
+    {steps.map((s,i)=>{
+      const w=max>0?(s.v/max)*100:0;const ct=s.ctr&&s.p>0?(s.v/s.p*100):null;
+      const dr=!s.ctr&&s.p>0&&s.v>=0?((s.p-s.v)/s.p*100):0;const lk=!s.ctr&&dr>50&&i>=2&&s.p>0&&s.v>0;
+      const iz=s.v===0&&i>0;const ip=i===steps.length-1;
+      return(<div key={s.l}>
+        <div className="flex justify-between text-xs mb-0.5">
+          <div className="flex items-center gap-1.5"><span className="text-stone-300 font-medium">{s.l}</span>{s.note&&<span className="text-[9px] text-stone-600 uppercase">{s.note}</span>}</div>
+          <div className="flex items-center gap-2">
+            {ct!==null&&<span className={`mono text-[11px] font-semibold ${ct>=2?'text-emerald-400':ct>=1?'text-amber-400':'text-red-400'}`}>CTR {ct.toFixed(2)}%</span>}
+            {!s.ctr&&dr>0&&s.v>0&&<span className={`mono text-[11px] ${lk?'text-red-400 font-semibold':'text-stone-500'}`}>{lk?'⚠ ':''}-{dr.toFixed(0)}%</span>}
+            <span className="mono text-stone-100 font-semibold w-12 text-right">{num(s.v)}</span>
+          </div>
+        </div>
+        <div className="h-5 bg-stone-950/60 relative overflow-hidden border-l-2 border-stone-800/60">
+          <div className={`h-full ${s.ctr?(ct>=2?'bg-emerald-800/50':ct>=1?'bg-amber-800/50':'bg-red-900/50'):iz?'bg-stone-800/30':lk?'bg-red-900/60':ip?'bg-emerald-900/60':'bg-amber-800/40'}`} style={{width:s.ctr?Math.max(w*8,1)+'%':Math.max(w,iz?0:0.5)+'%'}}/>
+          {lk&&<div className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-red-200 font-bold uppercase tracking-widest">Critical leak</div>}
+          {iz&&<div className={`absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-medium uppercase tracking-widest ${lag?'text-amber-600':gap?'text-stone-500':'text-stone-600'}`}>{lag?'⏳ Lag':gap?'Not attributed':'0'}</div>}
+        </div>
+      </div>);
+    })}
+    <div className="space-y-1 pt-1">
+      {(data.linkClicks||0)>0&&(data.lpv||0)>0&&((data.linkClicks-data.lpv)/data.linkClicks)>0.25&&<div className="text-[11px] text-red-300 border-l-2 border-red-800 pl-2">LP drop {(((data.linkClicks-data.lpv)/data.linkClicks)*100).toFixed(0)}% — target ≤25%. Test mobile 4G load speed.</div>}
+      {(data.atc||0)>3&&(data.ic||0)===0&&!lag&&!gap&&<div className="text-[11px] text-amber-300 border-l-2 border-amber-800 pl-2">{data.atc} ATCs, 0 IC — enable fbclid passthrough in GoKwik.</div>}
+      {(data.atc||0)>0&&(data.ic||0)>0&&(data.atc-data.ic)/data.atc>0.65&&<div className="text-[11px] text-amber-300 border-l-2 border-amber-800 pl-2">ATC→IC {(data.ic/data.atc*100).toFixed(0)}% — {(100-data.ic/data.atc*100).toFixed(0)}% not reaching GoKwik checkout.</div>}
+      {(data.ic||0)>0&&((data.ic-data.purchases)/data.ic)>0.55&&<div className="text-[11px] text-red-300 border-l-2 border-red-800 pl-2">IC→Purchase {(data.purchases/data.ic*100).toFixed(0)}% — Razorpay payment failures.</div>}
     </div>
-  );
-}
-function UnitEconomics({data,cfg}){
-  const GM=0.55;const cpa=data.cpa||0;const aov=data.aov||0;
-  const contrib=cpa>0?Math.round(aov*GM-cpa):null;
-  const a3=cpa>0?Math.round((cpa/GM)*3):null;const a5=cpa>0?Math.round((cpa/GM)*5):null;
-  const R=({l,v,vc})=>(<div className="flex justify-between py-1.5 border-b border-stone-800/50"><span className="text-xs text-stone-400">{l}</span><span className={`mono text-sm font-semibold ${vc||'text-stone-200'}`}>{v}</span></div>);
-  return(<div className="bg-stone-900/50 border border-stone-800 p-5"><div className="flex items-baseline justify-between mb-3"><h3 className="font-semibold text-stone-100">Unit economics</h3><span className="text-[9px] uppercase tracking-widest text-stone-600">55% GM</span></div><R l="Current CPA" v={inr(cpa)} vc={cpa>cfg.targetCpa?'text-red-400':'text-emerald-400'}/><R l={'Target ≤'+inr(cfg.targetCpa)} v={inr(cfg.targetCpa)} vc="text-stone-500"/><R l="Current AOV" v={inr(aov)} vc={aov<cfg.targetAov?'text-red-400':'text-emerald-400'}/><R l={'Target ≥'+inr(cfg.targetAov)} v={inr(cfg.targetAov)} vc="text-stone-500"/>{contrib!==null&&<R l="Contribution / order" v={inr(contrib)} vc={contrib>0?'text-emerald-400':'text-red-400'}/>}{a3&&<R l="AOV for 3x ROAS" v={inr(a3)} vc="text-stone-400"/>}{a5&&<R l="AOV for 5x ROAS" v={inr(a5)} vc="text-stone-400"/>}{contrib!==null&&contrib<0&&<div className="mt-2 text-[10px] text-red-400 border-l-2 border-red-800 pl-2">Each order LOSES {inr(Math.abs(contrib))}. Fix CPA or AOV first.</div>}</div>);
-}
-function ActionPlanView({tasks}){
-  if(!tasks?.length)return<div className="px-5 py-4 text-stone-500 text-sm">No actions required — within targets.</div>;
-  const groups=[{k:'today',l:'Today — stop the bleeding',b:'0–24 HOURS'},{k:'next48',l:'Next 48 hours — tighten',b:'1–2 DAYS'},{k:'week1',l:'Day 3–7 — apply kill rules',b:'3–7 DAYS'}].map(g=>({...g,tasks:tasks.filter(t=>t.phase===g.k)})).filter(g=>g.tasks.length>0);
-  const ss={kill:'border-l-red-500 bg-red-950/20',red:'border-l-red-700 bg-red-950/10',amber:'border-l-amber-600 bg-amber-950/10'};
-  const bs={kill:'bg-red-600 text-white',red:'bg-red-900 text-red-100 border border-red-700',amber:'bg-amber-600 text-stone-950'};
-  return(<div>{groups.map(g=>(<div key={g.k}><div className="px-5 py-2 border-b border-stone-800/40 bg-stone-900/40"><span className="text-xs font-semibold text-amber-500">{g.l}</span><span className="ml-2 text-[9px] text-stone-600 uppercase tracking-widest">{g.b}</span></div>{g.tasks.map((t,i)=>(<div key={i} className={`border-l-2 px-5 py-4 border-b border-stone-800/30 ${ss[t.sev]||'border-l-stone-600'}`}><div className="flex items-center gap-2 mb-2.5">{t.n&&<span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 flex-shrink-0 ${bs[t.sev]||'bg-stone-700 text-stone-300'}`}>#{t.n}</span>}<span className="text-sm font-bold text-stone-50 leading-snug">{t.title}</span></div>{t.steps?.length>0&&<div className="space-y-1.5 mb-2.5">{t.steps.map((s,si)=>(<div key={si} className="flex items-start gap-2.5"><span className="text-[10px] text-stone-600 mono mt-0.5 w-4 flex-shrink-0">{si+1}.</span><span className="text-xs text-stone-200 leading-relaxed">{s}</span></div>))}</div>}{t.protect&&<div className="flex items-start gap-2 mb-1.5"><span className="text-[10px] text-emerald-500 mt-0.5 flex-shrink-0">▶</span><span className="text-xs text-emerald-400 font-medium">{t.protect}</span></div>}{t.verify&&<div className="flex items-start gap-2"><span className="text-[10px] text-emerald-600 mt-0.5 flex-shrink-0">✓</span><span className="text-[11px] text-emerald-500/90">{t.verify}</span></div>}</div>))}</div>))}</div>);
-}
-function AdsetTable({adsets,br}){
-  if(!adsets?.length)return null;
-  const rs={scale:'text-emerald-400',reduce:'text-amber-400',warn:'text-amber-400',watch:'text-stone-500',nodata:'text-stone-600'};
-  return(<div>{br&&<div className="mx-0 mb-2 px-4 py-2 bg-amber-950/20 border-l-2 border-amber-700 text-[11px] text-amber-300"><strong>Budget move:</strong> Shift ₹{br.moveAmount.toLocaleString('en-IN')}/day from "{br.from.name.slice(-20)}" (₹{Math.round(br.from.cpc)} CPC) → "{br.to.name.slice(-20)}" (₹{Math.round(br.to.cpc)} CPC)</div>}<div className="overflow-x-auto"><table className="w-full text-[11px]"><thead><tr className="border-b border-stone-800/50">{['Ad set','Status','Spend','Budget','CTR','CPC','Orders','ROAS','Recommendation'].map(h=>(<th key={h} className={`py-1.5 font-normal text-stone-600 ${h==='Ad set'||h==='Recommendation'?'text-left pl-2':'text-right'}`}>{h}</th>))}</tr></thead><tbody>{adsets.map(a=>(<tr key={a.id} className="border-b border-stone-800/20 hover:bg-stone-800/20"><td className="py-2 pl-2 text-stone-300 max-w-[130px] truncate" title={a.name}>{a.name}</td><td className="py-2 text-right"><span className={`text-[9px] px-1.5 py-0.5 ${a.effectiveStatus==='ACTIVE'?'bg-emerald-950 text-emerald-400':'bg-stone-800 text-stone-500'}`}>{a.effectiveStatus}</span></td><td className="py-2 text-right mono text-stone-300">{a.spend>0?inr(a.spend):'—'}</td><td className="py-2 text-right mono text-stone-500">{a.dailyBudget?inr(a.dailyBudget)+'/d':'—'}</td><td className="py-2 text-right mono text-stone-300">{a.ctr>0?a.ctr+'%':'—'}</td><td className="py-2 text-right mono text-stone-300">{a.cpc>0?inr(a.cpc):'—'}</td><td className="py-2 text-right mono text-stone-400">{a.purchases||0}</td><td className="py-2 text-right mono font-bold">{a.roas>0?<span className={a.roas>=1.4?'text-emerald-400':a.roas>=1.0?'text-amber-400':'text-red-400'}>{a.roas}x</span>:'—'}</td><td className={`py-2 text-right pr-2 max-w-[180px] truncate ${rs[a.rec?.level]||'text-stone-500'}`} title={a.rec?.text}>{a.rec?.text||'—'}</td></tr>))}</tbody></table></div></div>);
-}
-function AdsGrid({ads}){
-  if(!ads?.length)return null;
-  const vs={hero:'border-amber-600/40 bg-amber-950/15',kill:'border-red-700/40 bg-red-950/15',promising:'border-blue-800/40 bg-blue-950/10',watch:'border-stone-700/40',small:'border-stone-800/40',blocked:'border-red-900/40 bg-red-950/10'};
-  const vl={hero:'★ HERO',kill:'✕ PAUSE',promising:'↗ PROMISING',watch:'○ WATCH',small:'… SMALL',blocked:'⚠ BLOCKED'};
-  return(<div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 p-4">{ads.map(a=>(<div key={a.id} className={`border rounded-sm p-3 ${vs[a.verdict]||vs.watch}`}><div className="flex items-start justify-between gap-2 mb-2"><div className="text-[10px] text-stone-500 truncate flex-1" title={a.name}>{a.name}</div><span className={`text-[9px] font-bold px-1.5 py-0.5 flex-shrink-0 mono ${a.verdict==='hero'?'bg-amber-600 text-stone-950':a.verdict==='kill'?'bg-red-900 text-red-100':a.verdict==='promising'?'bg-blue-900 text-blue-200':'bg-stone-800 text-stone-400'}`}>{vl[a.verdict]||a.verdict.toUpperCase()}</span></div><div className="grid grid-cols-4 gap-1.5 mb-2">{[['Spend',inr(a.spend)],['CTR',a.ctr?a.ctr+'%':'—'],['CPC',a.cpc?inr(a.cpc):'—'],['Orders',a.purchases||0]].map(([l,v])=>(<div key={l}><div className="text-[8px] text-stone-600 uppercase tracking-wide">{l}</div><div className="mono text-xs text-stone-200 font-medium">{v}</div></div>))}</div>{a.hookRate!==null&&<div className="flex gap-3 mb-2 text-[10px] text-stone-500"><span>Hook {a.hookRate?.toFixed(0)||'—'}%</span>{a.roas>0&&<span className={a.roas>=1.4?'text-emerald-400':'text-amber-400'}>ROAS {a.roas}x</span>}</div>}{a.rec&&<div className={`text-[10px] leading-relaxed ${a.rec.level==='scale'?'text-amber-300':a.rec.level==='kill'?'text-red-300':a.rec.level==='promising'?'text-blue-300':'text-stone-400'}`}><span className="font-semibold">{a.rec.title} — </span>{a.rec.text}</div>}</div>))}</div>);
-}
-function ExpandedCampaign({cfg,data,detail,loading,onClose,onReload,dateLabel,token}){
-  const plan=buildPlan(cfg,data,detail,dateLabel);
-  return(
-    <div className="fixed inset-0 z-50 flex flex-col bg-stone-950 overflow-hidden">
-      <div className="flex items-start justify-between px-5 pt-4 pb-3 border-b border-stone-800 flex-shrink-0">
-        <div><div className="text-[9px] text-stone-500 uppercase tracking-widest mb-1">{cfg.slot} · {cfg.type} / <span className="text-amber-400">{dateLabel}</span></div><h2 className="text-xl font-bold text-stone-50">{cfg.name}</h2><div className="text-[10px] text-stone-600 mt-0.5">{data.id} · {data.name}</div></div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <a href={`https://business.facebook.com/adsmanager/manage/campaigns?act=${ACCOUNT_ID}&selected_campaign_ids=${data.id}`} target="_blank" className="text-[10px] px-2.5 py-1 border border-stone-700 text-stone-400 hover:text-stone-200">↗ META</a>
-          <button onClick={onReload} className="text-[10px] px-2.5 py-1 border border-stone-700 text-stone-400 hover:text-stone-200">{loading?<span className="spin">↻</span>:'↻'}</button>
-          <button onClick={onClose} className="text-stone-400 hover:text-stone-100 text-xl ml-1">✕</button>
-        </div>
-      </div>
-      <div className="grid grid-cols-4 sm:grid-cols-7 border-b border-stone-800 flex-shrink-0">
-        {[['Spend',inr(data.spend),'period total',null],['ROAS',fx(data.roas),'kill <'+cfg.killRoas+'x',data.roas<cfg.killRoas?'bad':data.roas>=cfg.killRoas*1.2?'good':'warn'],['Orders',data.purchases||0,'CPA '+inr(data.cpa),null],['CTR',pct(data.ctr),'target ≥1.5%',(data.ctr||0)>=1.5?'good':'warn'],['CPC',inr(data.cpc),'target <₹60',(data.cpc||999)<60?'good':'warn'],['Freq',fx(data.frequency,2),'cap '+cfg.frequencyMax+'x',(data.frequency||0)<=cfg.frequencyMax?'good':'bad'],['AOV',inr(data.aov),'target '+inr(cfg.targetAov)+'+',(data.aov||0)>=cfg.targetAov?'good':'bad']].map(([l,v,s,st])=>(<div key={l} className="px-4 py-3 border-r border-stone-800/50"><div className="text-[9px] text-stone-600 uppercase tracking-widest">{l}</div><div className={`text-lg font-bold mono ${st==='good'?'text-emerald-400':st==='bad'?'text-red-400':st==='warn'?'text-amber-400':'text-stone-100'}`}>{v}</div><div className="text-[9px] text-stone-600">{s}</div></div>))}
-      </div>
-      <div className="overflow-y-auto flex-1">
-        <div className="border-b border-stone-800"><div className="flex items-center justify-between px-5 py-2.5 bg-stone-900/40"><span className="text-sm font-semibold text-stone-100">Action plan <span className="text-amber-500 font-normal text-xs">· from current data</span></span><span className="text-[9px] uppercase tracking-widest text-stone-500">{plan.length} ACTIONS</span></div><ActionPlanView tasks={plan}/></div>
-        {(data.impressions>0||data.purchases>0)&&<div className="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4"><FunnelViz data={data} dateLabel={dateLabel}/><UnitEconomics data={data} cfg={cfg}/></div>}
-        {loading&&<div className="text-center py-6 text-stone-500 text-sm"><span className="spin">↻</span> Loading adsets & ads…</div>}
-        {detail&&<><div className="border-t border-stone-800/60 px-4 pt-3 pb-1"><span className="text-xs font-semibold text-stone-300">Ad sets</span><span className="text-[9px] text-stone-600 ml-2">{detail.adsets?.length||0} total · {detail.adsets?.filter(a=>a.hasSpend).length||0} spending</span></div><AdsetTable adsets={detail.adsets} br={detail.budgetRealloc}/><div className="border-t border-stone-800/60 px-4 pt-3 pb-1"><span className="text-xs font-semibold text-stone-300">Ads</span><span className="text-[9px] text-stone-600 ml-2">{detail.summary?.heroes||0} hero · {detail.summary?.killCandidates||0} pause</span></div><AdsGrid ads={detail.ads}/></>}
-      </div>
-    </div>
-  );
-}
-function CampaignCard({cfg,data,onExpand,expanded}){
-  const has=data&&data.effectiveStatus==='ACTIVE'&&(data.spend||0)>0;
-  const st=!data?'NOT LAUNCHED':data.effectiveStatus==='ACTIVE'&&!has?'NO DELIVERY':data.effectiveStatus;
-  const sc=data?.status==='kill'?'text-red-400':has?'text-emerald-400':!data?'text-stone-600':'text-stone-500';
-  return(<div onClick={()=>data&&onExpand(cfg.slot,data)} className={`border border-stone-800/60 p-4 cursor-pointer hover:border-stone-700/60 hover:bg-stone-900/30 transition-colors ${expanded?'border-amber-700/40 bg-amber-950/10':has?'bg-stone-900/20':'bg-stone-950/40'}${data?.status==='kill'?' border-red-800/60 bg-red-950/10':''}`}><div className="flex items-start justify-between mb-2"><div><span className="text-[9px] font-bold text-stone-600 uppercase tracking-widest">{cfg.slot}</span><span className="ml-1.5 text-[9px] uppercase tracking-widest text-stone-600">{cfg.type}</span></div><span className={`text-[9px] font-bold uppercase tracking-widest ${sc}`}>{st}</span></div><div className="text-[10px] text-stone-500 leading-snug mb-3">{cfg.name}</div><div className="grid grid-cols-3 gap-2">{[['ROAS',data?.roas!=null?fx(data.roas):'—','kill <'+cfg.killRoas+'x',data?rc(data.roas,cfg.killRoas):'text-stone-600'],['Spend',has?inr(data.spend):'—',(data?.purchases||0)+' orders','text-stone-300'],['CPA',has&&data?.cpa?inr(data.cpa):'—','tgt ≤'+inr(cfg.targetCpa),data?.cpa&&data.cpa>cfg.targetCpa?'text-red-400':'text-stone-300']].map(([l,v,s,c])=>(<div key={l}><div className="text-[8px] text-stone-600 uppercase tracking-wide">{l}</div><div className={`text-base font-bold mono ${c}`}>{v}</div><div className="text-[8px] text-stone-700">{s}</div></div>))}</div></div>);
-}
-function LegacyCampaigns({campaigns,onSelect}){
-  const[search,setSearch]=useState('');const[filter,setFilter]=useState('all');const[sort,setSort]=useState({f:'spend',d:'desc'});
-  if(!campaigns?.length)return null;
-  const filtered=campaigns.filter(c=>{if(filter==='active')return c.effectiveStatus==='ACTIVE'&&c.spend>0;if(filter==='paused')return c.effectiveStatus==='PAUSED';if(filter==='kill')return c.status==='kill';return true;}).filter(c=>!search||c.name.toLowerCase().includes(search.toLowerCase())).sort((a,b)=>{const v1=a[sort.f]??-1,v2=b[sort.f]??-1;return sort.d==='desc'?v2-v1:v1-v2;});
-  return(<div className="mx-4 mb-4 border border-stone-800/60"><div className="flex items-center justify-between px-4 py-3 border-b border-stone-800/40 bg-stone-900/40"><div><span className="text-xs font-semibold text-stone-300">Legacy campaigns outside C1–C9</span><span className="ml-2 text-[9px] text-stone-500">{campaigns.filter(c=>c.spend>0).length} active · {inr(campaigns.reduce((s,c)=>s+(c.spend||0),0))}</span></div><span className="text-[9px] text-stone-600">{campaigns.length} total</span></div><div className="flex items-center gap-2 px-4 py-2 border-b border-stone-800/30 bg-stone-950/40 flex-wrap"><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search…" className="bg-stone-800 border border-stone-700 text-stone-200 text-xs px-2.5 py-1 outline-none w-44 focus:border-stone-500 rounded-sm"/>{['all','active','paused','kill'].map(f=>(<button key={f} onClick={()=>setFilter(f)} className={`text-[9px] uppercase tracking-widest px-2 py-1 rounded-sm ${filter===f?'bg-stone-700 text-stone-200':'text-stone-500 hover:text-stone-300'}`}>{f}</button>))}</div><div className="overflow-x-auto"><table className="w-full text-[11px]"><thead><tr className="border-b border-stone-800/40">{[['Name',null],['Spend','spend'],['Revenue','revenue'],['ROAS','roas'],['Orders','purchases'],['Freq','frequency']].map(([h,sf])=>(<th key={h} className={`py-2 font-normal text-stone-600 ${h==='Name'?'text-left pl-3':'text-right cursor-pointer hover:text-stone-400'}`} onClick={()=>sf&&setSort(s=>({f:sf,d:s.f===sf&&s.d==='desc'?'asc':'desc'}))}>{h}{sort.f===sf?sort.d==='desc'?' ▼':' ▲':''}</th>))}<th className="py-2 text-right pr-3 text-stone-600 font-normal">Open</th></tr></thead><tbody>{filtered.slice(0,50).map(c=>(<tr key={c.id} className={`border-b border-stone-800/20 hover:bg-stone-800/20 cursor-pointer ${c.status==='kill'?'bg-red-950/10':''}`} onClick={()=>onSelect(c.id,c)}><td className="py-2 pl-3 text-stone-300 max-w-[200px] truncate" title={c.name}>{c.name}</td><td className="py-2 text-right mono text-stone-300">{c.spend>0?inr(c.spend):'—'}</td><td className="py-2 text-right mono text-stone-300">{c.revenue>0?inr(c.revenue):'—'}</td><td className={`py-2 text-right mono font-bold ${c.roas>=1.4?'text-emerald-400':c.roas>0?c.roas>=1.0?'text-amber-400':'text-red-400':'text-stone-600'}`}>{c.roas!==null?fx(c.roas):'—'}</td><td className="py-2 text-right mono text-stone-400">{c.purchases||0}</td><td className="py-2 text-right mono text-stone-500">{c.frequency>0?c.frequency.toFixed(2)+'x':'—'}</td><td className="py-2 text-right pr-3"><a href={`https://business.facebook.com/adsmanager/manage/campaigns?act=${ACCOUNT_ID}&selected_campaign_ids=${c.id}`} target="_blank" onClick={e=>e.stopPropagation()} className="text-[9px] text-stone-600 hover:text-stone-400">↗</a></td></tr>))}</tbody></table>{filtered.length>50&&<div className="px-3 py-2 text-[10px] text-stone-600 text-center">Showing 50 of {filtered.length}</div>}</div></div>);
-}
-
-// ── Main Dashboard ───────────────────────────────────────────────────
-function Dashboard({token}){
-  const[data,setData]=useState(null);const[err,setErr]=useState(null);const[syncing,setSyncing]=useState(false);const[lastSync,setLastSync]=useState(null);
-  const[preset,setPreset]=useState('last_7d');const[custom,setCustom]=useState({s:'',u:''});const[useCustom,setUseCustom]=useState(false);const[showPicker,setShowPicker]=useState(false);
-  const[expanded,setExpanded]=useState(null);const[expandedData,setExpandedData]=useState(null);const[expandedCfg,setExpandedCfg]=useState(null);
-  const[detail,setDetail]=useState({});const[loadingDetail,setLoadingDetail]=useState({});
-
-  const dateQ=useMemo(()=>useCustom&&custom.s&&custom.u?`time_range=${encodeURIComponent(JSON.stringify({since:custom.s,until:custom.u}))}`:`date_preset=${preset}`,[useCustom,custom,preset]);
-  const dateLabel=useMemo(()=>useCustom&&custom.s&&custom.u?`${custom.s} → ${custom.u}`:preset,[useCustom,custom,preset]);
-
-  const sync=useCallback(async()=>{
-    setSyncing(true);setErr(null);
-    try{const d=await fetchDashboard(token,dateQ);setData(d);setLastSync(new Date().toISOString());}
-    catch(e){setErr(e.message);}
-    finally{setSyncing(false);}
-  },[token,dateQ]);
-
-  useEffect(()=>{sync();},[]);
-
-  const loadDetail=useCallback(async(id)=>{
-    if(loadingDetail[id])return;
-    setLoadingDetail(p=>({...p,[id]:true}));
-    try{const d=await fetchDetail(token,id,dateQ);setDetail(p=>({...p,[id]:d}));}
-    catch(e){console.error('Detail error:',e);}
-    finally{setLoadingDetail(p=>({...p,[id]:false}));}
-  },[token,dateQ]);
-
-  const handleExpand=(slot,campData)=>{
-    const id=campData?.id;if(!id)return;
-    if(expanded===id){setExpanded(null);setExpandedData(null);setExpandedCfg(null);return;}
-    setExpanded(id);setExpandedData(campData);
-    setExpandedCfg(campData.slot?SLOT_MAP[campData.slot]:{slot:'LEGACY',name:campData.name,type:'legacy',killRoas:1.0,targetCpa:4000,targetAov:5000,frequencyMax:3.0,killSpend:10000});
-    if(!detail[id])loadDetail(id);
-  };
-  const closeExpanded=()=>{setExpanded(null);setExpandedData(null);setExpandedCfg(null);};
-
-  const slotData=useMemo(()=>{if(!data?.campaigns)return{};const m={};data.campaigns.forEach(c=>{if(c.slot)m[c.slot]=c;});return m;},[data]);
-
-  return(<div className="min-h-screen">
-    <div className="sticky top-0 z-40 bg-stone-950/95 border-b border-stone-800/60 backdrop-blur-sm">
-      <div className="flex items-center justify-between px-4 py-2 gap-3 flex-wrap">
-        <div className="flex items-center gap-3">
-          <div className="text-[9px] text-stone-600 uppercase tracking-[0.2em]">FashionForever · 9-Campaign</div>
-          {data&&<div className={`w-1.5 h-1.5 rounded-full ${syncing?'bg-amber-400 pulse':'bg-emerald-500'}`}/>}
-          {lastSync&&<div className="text-[9px] text-stone-600">{syncing?'Syncing…':'Updated '+new Date(lastSync).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</div>}
-        </div>
-        <div className="flex items-center gap-1 flex-wrap">
-          {DATE_PRESETS.map(p=>(<button key={p.v} onClick={()=>{setPreset(p.v);setUseCustom(false);}} className={`text-[9px] px-2 py-1 uppercase tracking-widest ${(!useCustom&&preset===p.v)?'bg-stone-700 text-stone-100':'text-stone-500 hover:text-stone-300'}`}>{p.l}</button>))}
-          <button onClick={()=>setShowPicker(!showPicker)} className={`text-[9px] px-2 py-1 uppercase tracking-widest ${useCustom?'bg-amber-700 text-stone-100':'text-stone-500 hover:text-stone-300'}`}>📅 Custom</button>
-          {showPicker&&<div className="flex items-center gap-1"><input type="date" value={custom.s} onChange={e=>setCustom(p=>({...p,s:e.target.value}))} className="bg-stone-800 border border-stone-700 text-stone-200 text-[10px] px-1.5 py-0.5 outline-none rounded-sm"/><span className="text-stone-600 text-[9px]">→</span><input type="date" value={custom.u} onChange={e=>setCustom(p=>({...p,u:e.target.value}))} className="bg-stone-800 border border-stone-700 text-stone-200 text-[10px] px-1.5 py-0.5 outline-none rounded-sm"/><button onClick={()=>{if(custom.s&&custom.u){setUseCustom(true);setShowPicker(false);}}} className="text-[9px] px-2 py-0.5 bg-amber-600 text-stone-950 font-semibold rounded-sm">Go</button></div>}
-          <button onClick={sync} disabled={syncing} className="text-[9px] px-3 py-1 bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold uppercase tracking-widest disabled:opacity-50">{syncing?<span className="spin">↻</span>:'Sync Now'}</button>
-        </div>
-      </div>
-    </div>
-    {err&&<div className="mx-4 mt-3 px-3 py-2 bg-red-950/30 border border-red-800/50 text-red-300 text-xs">{err}<br/><span className="text-stone-600">If you see a token error, refresh the page to re-enter your token.</span></div>}
-    {!data&&!err&&<div className="flex items-center justify-center py-20 text-stone-500"><span className="spin mr-2">↻</span>Loading dashboard…</div>}
-    {data&&<>
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-px bg-stone-800/40 mx-4 mt-4 mb-3">
-        <KpiCard label="SPEND" value={inr(data.spend)} sub="period total" status="neutral"/>
-        <KpiCard label="REVENUE" value={inr(data.revenue)} sub="Meta attrib." status="neutral"/>
-        <KpiCard label="ROAS" value={fx(data.roas)} sub="target 1.5x+" status={data.roas>=1.5?'good':data.roas>=1.0?'warn':'bad'}/>
-        <KpiCard label="AOV" value={inr(data.aov)} sub="Core Pair target ₹7,800" status={(data.aov||0)>=6500?'good':'warn'}/>
-        <KpiCard label="CPA" value={inr(data.cpa)} sub="target ≤₹3,800" status={(data.cpa||9999)<=3800?'good':'bad'}/>
-        <KpiCard label="FREQUENCY" value={fx(data.frequency,2)} sub="cap 3.5x" status={(data.frequency||0)<=2.5?'good':'warn'}/>
-        <KpiCard label="IC→PURCH." value={pct(data.icToPurchase)} sub="target ≥40%" status={(data.icToPurchase||0)>=40?'good':'warn'}/>
-      </div>
-      {data.roas<1.0&&data.spend>0&&<div className="mx-4 mb-3 px-3 py-2 bg-red-950/20 border-l-2 border-red-500 text-red-300 text-[11px]">🔴 Account ROAS {data.roas}x below 1.0x — contribution-negative. Every rupee of revenue costs more than it earns.</div>}
-      {data.roas>=1.0&&data.roas<1.4&&data.spend>0&&<div className="mx-4 mb-3 px-3 py-2 bg-red-950/10 border-l-2 border-red-700 text-red-400 text-[11px]">⚠ Account ROAS {data.roas}x below 1.4x kill threshold — structurally contribution-negative.</div>}
-      <DailyPaceTracker dailyData={data.dailyData}/>
-      <div className="mx-4 mb-4">
-        <div className="flex items-center justify-between mb-2"><span className="text-xs font-semibold text-stone-400 uppercase tracking-widest">C1–C9 Campaign Matrix</span><span className="text-[9px] text-stone-600">{data.campaigns?.filter(c=>c.effectiveStatus==='ACTIVE').length||0} / 9 Active · Click any to expand</span></div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-2">
-          {CAMPAIGN_SLOTS.map(cfg=>(<CampaignCard key={cfg.slot} cfg={cfg} data={slotData[cfg.slot]} onExpand={handleExpand} expanded={expanded===slotData[cfg.slot]?.id}/>))}
-        </div>
-      </div>
-      <LegacyCampaigns campaigns={data.unmappedCampaigns||[]} onSelect={handleExpand}/>
-    </>}
-    {expanded&&expandedCfg&&expandedData&&<ExpandedCampaign cfg={expandedCfg} data={expandedData} detail={detail[expanded]} loading={!!loadingDetail[expanded]} onClose={closeExpanded} onReload={()=>{setDetail(p=>{const n={...p};delete n[expanded];return n;});loadDetail(expanded);}} dateLabel={dateLabel} token={token}/>}
   </div>);
 }
+
+// ── Purchase Attribution Table ──────────────────────────────────────
+function PurchaseMap({adsets,ads,totalPurchases}){
+  const buyers=adsets.filter(a=>a.purchases>0);
+  const buyerAds=ads.filter(a=>a.purchases>0);
+  if(buyers.length===0&&totalPurchases===0)return null;
+  const attributed=buyers.reduce((s,a)=>s+(a.purchases||0),0);
+  const unattr=Math.max(0,(totalPurchases||0)-attributed);
+  return(
+    <div className="bg-emerald-950/20 border border-emerald-900/40 p-4 rounded-sm">
+      <div className="flex items-baseline justify-between mb-3">
+        <h4 className="text-sm font-bold text-emerald-300">Purchase Attribution</h4>
+        <span className="text-[10px] text-emerald-700">{totalPurchases} total orders</span>
+      </div>
+      {buyers.length>0&&(<div className="space-y-2 mb-3">
+        <div className="text-[9px] text-stone-600 uppercase tracking-widest mb-1">By Ad Set</div>
+        {buyers.map(a=>(<div key={a.id} className="flex items-center justify-between">
+          <span className="text-[11px] text-stone-300 truncate max-w-[60%]" title={a.name}>{a.name}</span>
+          <div className="flex items-center gap-3">
+            <span className="mono text-[11px] text-emerald-300 font-bold">{a.purchases} order{a.purchases>1?'s':''}</span>
+            <span className="mono text-[11px] text-emerald-500">{a.roas?a.roas+'x':''}</span>
+            <span className="mono text-[11px] text-stone-500">{inr(a.cpa)}</span>
+          </div>
+        </div>))}
+      </div>)}
+      {buyerAds.length>0&&(<div className="space-y-2 border-t border-emerald-900/40 pt-3">
+        <div className="text-[9px] text-stone-600 uppercase tracking-widest mb-1">By Ad</div>
+        {buyerAds.map(a=>(<div key={a.id} className="flex items-center justify-between">
+          <span className="text-[11px] text-stone-300 truncate max-w-[60%]" title={a.name}>{a.name}</span>
+          <div className="flex items-center gap-3">
+            <span className="mono text-[11px] text-emerald-300 font-bold">{a.purchases} order{a.purchases>1?'s':''}</span>
+            <span className="mono text-[11px] text-stone-500">{a.cpa?inr(a.cpa):''}</span>
+          </div>
+        </div>))}
+      </div>)}
+      {unattr>0&&<div className="text-[10px] text-stone-500 border-t border-emerald-900/40 pt-2 mt-2">+{unattr} order{unattr>1?'s':''} not attributed to specific ad sets (view-through or cross-device)</div>}
+    </div>
+  );
+}
+
+// ── Adset Accordion ──────────────────────────────────────────────────
+function AdsetAccordion({adsets}){
+  const[openId,setOpenId]=useState(null);
+  if(!adsets?.length)return null;
+  const spenders=adsets.filter(a=>a.hasSpend&&a.cpc>0);
+  const avgCpc=spenders.length>0?spenders.reduce((s,a)=>s+a.cpc,0)/spenders.length:0;
+  return(
+    <div className="space-y-1">
+      {adsets.map(a=>{
+        const isOpen=openId===a.id;
+        const hasPurchase=a.purchases>0;
+        const recColor=hasPurchase?'text-emerald-400':a.atc>0&&a.ic===0?'text-amber-400':a.cpc>0&&avgCpc>0&&a.cpc>avgCpc*1.25?'text-amber-400':a.cpc>0&&avgCpc>0&&a.cpc<avgCpc*0.8?'text-emerald-400':'text-stone-500';
+        const recText=hasPurchase?`${a.purchases} purchase${a.purchases>1?'s':''} — protect. Focus on GoKwik fbclid attribution.`:a.atc>0&&a.ic===0?`${a.atc} ATCs, 0 IC — GoKwik fbclid passthrough needed`:a.cpc>0&&avgCpc>0&&a.cpc>avgCpc*1.25?`CPC ₹${Math.round(a.cpc)} +${Math.round((a.cpc/avgCpc-1)*100)}% above avg — reduce budget 20%`:a.cpc>0&&avgCpc>0&&a.cpc<avgCpc*0.8?`Lowest CPC ₹${Math.round(a.cpc)} — scale +20%`:`CTR ${a.ctr||0}%, CPC ${inr(a.cpc)} — monitor 48h`;
+        return(
+          <div key={a.id} className={`border ${hasPurchase?'border-emerald-900/50 bg-emerald-950/10':'border-stone-800/40'} rounded-sm overflow-hidden`}>
+            <div className="flex items-center justify-between px-4 py-2.5 cursor-pointer hover:bg-stone-800/20" onClick={()=>setOpenId(isOpen?null:a.id)}>
+              <div className="flex items-center gap-3 min-w-0">
+                {hasPurchase&&<span className="text-[9px] bg-emerald-800 text-emerald-100 px-1.5 py-0.5 font-bold flex-shrink-0">{a.purchases} ORDER{a.purchases>1?'S':''}</span>}
+                <span className="text-[11px] text-stone-300 truncate" title={a.name}>{a.name}</span>
+              </div>
+              <div className="flex items-center gap-4 flex-shrink-0 ml-2">
+                <span className="text-[10px] mono text-stone-400 hidden sm:block">{inr(a.spend)}</span>
+                <span className={`text-[10px] mono ${a.roas>=1.4?'text-emerald-400':a.roas>0?'text-amber-400':'text-stone-600'}`}>{a.roas>0?a.roas+'x':'—'}</span>
+                <span className="text-[10px] text-stone-600">{isOpen?'▲':'▼'}</span>
+              </div>
+            </div>
+            {isOpen&&(<div className="border-t border-stone-800/40 px-4 py-3 slide-down">
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-3">
+                {[['Spend',inr(a.spend),null],['Budget',a.dailyBudget?inr(a.dailyBudget)+'/d':'—',null],['CTR',a.ctr>0?a.ctr+'%':'—',a.ctr>=1.5?'text-emerald-400':a.ctr>0?'text-amber-400':'text-stone-500'],['CPC',inr(a.cpc),a.cpc<60?'text-emerald-400':a.cpc<90?'text-amber-400':'text-red-400'],['Orders',a.purchases||0,a.purchases>0?'text-emerald-400':'text-stone-400'],['ROAS',a.roas>0?a.roas+'x':'—',a.roas>=1.4?'text-emerald-400':a.roas>0?'text-amber-400':'text-stone-500']].map(([l,v,c])=>(<div key={l}><div className="text-[9px] text-stone-600 uppercase tracking-wide">{l}</div><div className={`mono text-sm font-semibold ${c||'text-stone-200'}`}>{v}</div></div>))}
+              </div>
+              <div className={`text-[11px] ${recColor} border-l-2 ${hasPurchase?'border-emerald-700':a.atc>0&&a.ic===0?'border-amber-700':'border-stone-700'} pl-2`}>{recText}</div>
+              {a.atc>0&&<div className="grid grid-cols-4 gap-2 mt-2">
+                {[['LPV',a.lpv],['ATC',a.atc],['IC',a.ic],['Orders',a.purchases]].map(([l,v])=>(<div key={l}><div className="text-[8px] text-stone-600 uppercase">{l}</div><div className="mono text-xs font-semibold text-stone-300">{v||0}</div></div>))}
+              </div>}
+            </div>)}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Ads Grid ─────────────────────────────────────────────────────────
+function AdsGrid({ads,avgCtr}){
+  if(!ads?.length)return null;
+  const[filter,setFilter]=useState('all');
+  const options=[{k:'all',l:'All'},{k:'hero',l:'★ Orders'},{k:'top',l:'↑ Top CTR'},{k:'watch',l:'○ Watch'},{k:'kill',l:'✕ Pause'},{k:'small',l:'… Small'}];
+  const filtered=filter==='all'?ads:ads.filter(a=>a.verdict===filter||(filter==='hero'&&a.purchases>0));
+  return(<div>
+    <div className="flex items-center gap-1 mb-3 flex-wrap">
+      {options.map(o=>(<button key={o.k} onClick={()=>setFilter(o.k)} className={`text-[9px] px-2.5 py-1 border rounded-sm transition-colors uppercase tracking-widest ${filter===o.k?'bg-stone-700 border-stone-600 text-stone-100':'border-stone-800 text-stone-500 hover:text-stone-300'}`}>{o.l} {o.k==='all'?ads.length:o.k==='hero'?ads.filter(a=>a.purchases>0||a.verdict==='hero').length:ads.filter(a=>a.verdict===o.k||(o.k==='hero'&&a.purchases>0)).length}</button>))}
+    </div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+      {filtered.map(a=>{
+        const hasPurch=a.purchases>0;
+        const vStyle={hero:'border-amber-600/40 bg-amber-950/15',top:'border-emerald-800/40 bg-emerald-950/10',kill:'border-red-700/40 bg-red-950/10',watch:'border-stone-700/40',small:'border-stone-800/40',blocked:'border-red-900/40'};
+        const vLabel={hero:`★ ${a.purchases} ORDER${a.purchases>1?'S':''}`,top:'↑ TOP CTR',kill:'✕ PAUSE',watch:'○ WATCH',small:'… SMALL',blocked:'⚠ BLOCKED'};
+        const vBadge={hero:'bg-emerald-700 text-emerald-50',top:'bg-emerald-900 text-emerald-300 border border-emerald-700',kill:'bg-red-900 text-red-100',watch:'bg-stone-800 text-stone-400',small:'bg-stone-900 text-stone-600',blocked:'bg-red-950 text-red-400'};
+        let rec='';
+        if(hasPurch)rec=`${a.purchases} purchase${a.purchases>1?'s':''} confirmed. ROAS ${a.roas||0}x. Protect — do not pause regardless of CTR.`;
+        else if(a.verdict==='top')rec=`CTR ${a.ctr}%, CPC ${inr(a.cpc)} — 2x better than avg ${avgCtr?.toFixed(1)}%. Create solo adset. Brief 3 hook variants.`;
+        else if(a.verdict==='kill')rec=`CTR ${a.ctr}%, CPC ${inr(a.cpc)}, 0 purchases. Pause. Brief new hook angle.`;
+        else if(a.verdict==='small')rec=`${a.impressions} impressions — need 300+ for a verdict.`;
+        else if(a.verdict==='blocked')rec='Stuck in review. Duplicate with simpler creative.';
+        else rec=`CTR ${a.ctr||0}%, CPC ${inr(a.cpc)}. ${a.impressions>500?'Make a call in 48h.':`${Math.max(0,500-a.impressions)} more impressions needed.`}`;
+        return(
+          <div key={a.id} className={`border rounded-sm p-3 ${hasPurch?'order-glow':''} ${vStyle[a.verdict]||vStyle.watch}`}>
+            <div className="flex items-start justify-between gap-2 mb-2.5">
+              <div className="text-[10px] text-stone-500 leading-tight flex-1 min-w-0" title={a.name}>{a.name}</div>
+              <span className={`text-[9px] font-bold px-1.5 py-0.5 flex-shrink-0 mono rounded-sm ${vBadge[a.verdict]||vBadge.watch}`}>{vLabel[a.verdict]||a.verdict.toUpperCase()}</span>
+            </div>
+            <div className="grid grid-cols-4 gap-2 mb-2.5">
+              {[['Spend',inr(a.spend),''],['CTR',a.ctr?a.ctr+'%':'—',a.ctr>=2?'text-emerald-400':a.ctr>=1?'text-amber-400':'text-red-400'],['CPC',a.cpc?inr(a.cpc):'—',a.cpc<60?'text-emerald-400':a.cpc<90?'text-amber-400':'text-red-400'],['ROAS',a.roas>0?a.roas+'x':'—',a.roas>=1.4?'text-emerald-400':a.roas>0?'text-amber-400':'text-stone-400']].map(([l,v,c])=>(<div key={l}><div className="text-[8px] text-stone-600 uppercase tracking-wide">{l}</div><div className={`mono text-xs font-semibold ${c||'text-stone-200'}`}>{v}</div></div>))}
+            </div>
+            <div className={`text-[10px] leading-relaxed ${hasPurch?'text-emerald-300':a.verdict==='top'?'text-amber-300':a.verdict==='kill'?'text-red-300':'text-stone-400'}`}>{rec}</div>
+          </div>
+        );
+      })}
+    </div>
+  </div>);
+}
+
+// ── Campaign Detail (Tabbed) ─────────────────────────────────────────
+function CampaignDetail({cfg,data,detail,loading,dateLabel}){
+  const[tab,setTab]=useState('plan');
+  const plan=buildPlan(cfg,data,detail,dateLabel);
+  const tabs=[{k:'plan',l:`Action Plan ${plan.length>0?'('+plan.length+')':''}`},{k:'funnel',l:'Funnel'},{k:'adsets',l:`Ad Sets ${detail?'('+detail.adsets.length+')':''}`},{k:'ads',l:`Ads ${detail?'('+detail.ads.length+')':''}`}];
+  const sevS={kill:'border-l-red-500 bg-red-950/15',red:'border-l-red-700 bg-red-950/10',amber:'border-l-amber-600 bg-amber-950/10'};
+  const sevB={kill:'bg-red-600 text-white',red:'bg-red-900 text-red-100 border border-red-700',amber:'bg-amber-600 text-stone-950'};
+  const gs=[{k:'today',l:'Today — stop the bleeding',b:'0-24 HRS'},{k:'next48',l:'Next 48h — tighten',b:'1-2 DAYS'},{k:'week1',l:'Day 3-7 — kill rules',b:'3-7 DAYS'}].map(g=>({...g,tasks:plan.filter(t=>t.phase===g.k)})).filter(g=>g.tasks.length>0);
+  const GMSZ=0.55;const cpa=data.cpa||0;const aov=data.aov||0;const contrib=cpa>0?Math.round(aov*GMSZ-cpa):null;
+  return(
+    <div className="mt-2 border border-stone-700/60 bg-stone-950/80 rounded-sm slide-down overflow-hidden">
+      {/* Tabs */}
+      <div className="flex items-center border-b border-stone-800/60 bg-stone-900/40 px-2">
+        {tabs.map(t=>(<button key={t.k} onClick={()=>setTab(t.k)} className={`px-4 py-2.5 text-xs font-medium transition-colors ${tab===t.k?'tab-active':'tab-inactive'}`}>{t.l}</button>))}
+        {loading&&<span className="ml-auto pr-3 text-[10px] text-stone-500"><span className="spin">↻</span> Loading…</span>}
+      </div>
+      {/* KPI row */}
+      <div className="grid grid-cols-4 sm:grid-cols-7 border-b border-stone-800/40">
+        {[['Spend',inr(data.spend),'period',null],['ROAS',fx(data.roas),'kill <'+cfg.killRoas+'x',data.roas<cfg.killRoas?'bad':data.roas>=cfg.killRoas*1.2?'good':'warn'],['Orders',data.purchases||0,'CPA '+inr(data.cpa),null],['CTR',pct(data.ctr),'≥1.5%',(data.ctr||0)>=1.5?'good':'warn'],['CPC',inr(data.cpc),'<₹60',(data.cpc||999)<60?'good':'warn'],['Freq',fx(data.frequency,2),'cap '+cfg.freqMax+'x',(data.frequency||0)<=cfg.freqMax?'good':'bad'],['AOV',inr(data.aov),'tgt '+inr(cfg.targetAov)+'+',(data.aov||0)>=cfg.targetAov?'good':'bad']].map(([l,v,s,st])=>(<div key={l} className="px-3 py-2.5 border-r border-stone-800/40"><div className="text-[9px] text-stone-600 uppercase tracking-widest">{l}</div><div className={`text-base font-bold mono ${st==='good'?'text-emerald-400':st==='bad'?'text-red-400':st==='warn'?'text-amber-400':'text-stone-100'}`}>{v}</div><div className="text-[9px] text-stone-600">{s}</div></div>))}
+      </div>
+      <div className="p-4">
+        {/* Action Plan tab */}
+        {tab==='plan'&&<div>
+          {gs.length===0&&<div className="text-stone-500 text-sm py-2">No actions required — within targets.</div>}
+          {gs.map(g=>(<div key={g.k} className="mb-4">
+            <div className="flex items-center gap-2 mb-2"><span className="text-[9px] font-bold text-amber-500 uppercase tracking-widest">{g.l}</span><span className="text-[8px] text-stone-600 uppercase tracking-widest">{g.b}</span></div>
+            {g.tasks.map((t,i)=>(<div key={i} className={`border-l-2 px-4 py-3 mb-2 rounded-r-sm ${sevS[t.sev]||'border-l-stone-600'}`}>
+              <div className="flex items-center gap-2 mb-2">{t.n&&<span className={`text-[9px] font-black px-1.5 py-0.5 rounded-sm ${sevB[t.sev]||'bg-stone-700 text-stone-300'}`}>#{t.n}</span>}<span className="text-sm font-bold text-stone-50">{t.title}</span></div>
+              {t.steps?.map((s,si)=>(<div key={si} className="flex items-start gap-2.5 mb-1"><span className="text-[10px] text-stone-600 mono mt-0.5 w-4 flex-shrink-0">{si+1}.</span><span className="text-xs text-stone-200">{s}</span></div>))}
+              {t.protect&&<div className="flex items-start gap-2 mt-1.5"><span className="text-[10px] text-emerald-500 flex-shrink-0">▶</span><span className="text-xs text-emerald-400 font-medium">{t.protect}</span></div>}
+              {t.verify&&<div className="flex items-start gap-2 mt-1"><span className="text-[10px] text-stone-600 flex-shrink-0">✓</span><span className="text-[11px] text-emerald-500/80">{t.verify}</span></div>}
+            </div>))}
+          </div>))}
+          {/* Unit economics inline */}
+          {cpa>0&&<div className="mt-4 border border-stone-800/60 p-3 bg-stone-900/40">
+            <div className="text-[10px] text-stone-500 uppercase tracking-widest mb-2">Unit Economics · 55% GM</div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {[['CPA',inr(cpa),cpa>cfg.targetCpa?'text-red-400':'text-emerald-400'],['AOV',inr(aov),aov<cfg.targetAov?'text-red-400':'text-emerald-400'],['Contrib/order',contrib!==null?inr(contrib):'—',contrib!==null?(contrib>0?'text-emerald-400':'text-red-400'):'text-stone-500'],['AOV for 5x ROAS',cpa>0?inr(Math.round((cpa/GMSZ)*5)):'—','text-stone-400']].map(([l,v,c])=>(<div key={l}><div className="text-[9px] text-stone-600 uppercase">{l}</div><div className={`mono text-sm font-bold ${c}`}>{v}</div></div>))}
+            </div>
+            {contrib!==null&&contrib<0&&<div className="text-[10px] text-red-400 border-l-2 border-red-800 pl-2 mt-2">Each order loses {inr(Math.abs(contrib))} in contribution. Fix CPA or AOV before scaling.</div>}
+          </div>}
+        </div>}
+        {/* Funnel tab */}
+        {tab==='funnel'&&<Funnel data={data} dateLabel={dateLabel}/>}
+        {/* Adsets tab */}
+        {tab==='adsets'&&<div>
+          {detail&&<><PurchaseMap adsets={detail.adsets} ads={detail.ads} totalPurchases={data.purchases}/><div className="mt-3"><AdsetAccordion adsets={detail.adsets}/></div></>}
+          {!detail&&!loading&&<div className="text-stone-500 text-sm py-4 text-center">Click the campaign to load adsets</div>}
+        </div>}
+        {/* Ads tab */}
+        {tab==='ads'&&<div>
+          {detail&&<AdsGrid ads={detail.ads} avgCtr={detail.avgCtr}/>}
+          {!detail&&!loading&&<div className="text-stone-500 text-sm py-4 text-center">Click the campaign to load ads</div>}
+        </div>}
+      </div>
+    </div>
+  );
+}
+
+// ── Campaign Card ────────────────────────────────────────────────────
+function CampaignCard({cfg,data,open,onToggle}){
+  const has=data&&data.effectiveStatus==='ACTIVE'&&(data.spend||0)>0;
+  const st=!data?'NOT LAUNCHED':data.effectiveStatus==='ACTIVE'&&!has?'NO DELIVERY':data.effectiveStatus;
+  const sc=data?.status==='kill'?'text-red-400':has?'text-emerald-400':!data?'text-stone-700':'text-stone-500';
+  const isKill=data?.status==='kill';
+  return(
+    <div onClick={()=>data&&onToggle()} className={`border cursor-pointer transition-all duration-150 hover:border-stone-600 ${open?'border-amber-700/50 bg-amber-950/10':isKill?'border-red-800/50 bg-red-950/10':'border-stone-800/60 bg-stone-900/20 hover:bg-stone-900/40'} ${!data?'opacity-50 cursor-default':''}`}>
+      <div className="p-3">
+        <div className="flex items-center justify-between mb-1.5">
+          <div className="flex items-center gap-1.5"><span className="text-[9px] font-bold text-stone-600 uppercase">{cfg.slot}</span><span className="text-[8px] text-stone-700 uppercase">{cfg.type}</span></div>
+          <div className="flex items-center gap-1.5"><span className={`text-[9px] font-bold uppercase ${sc}`}>{st}</span>{data&&<span className="text-stone-700 text-[10px]">{open?'▲':'▼'}</span>}</div>
+        </div>
+        <div className="text-[9px] text-stone-600 leading-snug mb-2.5">{cfg.name}</div>
+        <div className="grid grid-cols-3 gap-1.5">
+          <div><div className="text-[8px] text-stone-700 uppercase">ROAS</div><div className={`text-sm font-bold mono ${data?.roas!=null?rc(data.roas,cfg.killRoas):'text-stone-700'}`}>{data?.roas!=null?fx(data.roas):'—'}</div><div className="text-[8px] text-stone-700">kill &lt;{cfg.killRoas}x</div></div>
+          <div><div className="text-[8px] text-stone-700 uppercase">Spend</div><div className="text-sm font-bold mono text-stone-300">{has?inr(data.spend):'—'}</div><div className="text-[8px] text-stone-700">{data?.purchases||0} orders</div></div>
+          <div><div className="text-[8px] text-stone-700 uppercase">CPA</div><div className={`text-sm font-bold mono ${data?.cpa&&data.cpa>cfg.targetCpa?'text-red-400':'text-stone-300'}`}>{has&&data?.cpa?inr(data.cpa):'—'}</div><div className="text-[8px] text-stone-700">tgt ≤{inr(cfg.targetCpa)}</div></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Legacy Table ──────────────────────────────────────────────────────
+function LegacyTable({campaigns,token,dateQ}){
+  const[search,setSearch]=useState('');const[filter,setFilter]=useState('all');const[sort,setSort]=useState({f:'spend',d:'desc'});
+  const[expanded,setExpanded]=useState(null);const[detail,setDetail]=useState({});const[loading,setLoading]=useState({});const[open,setOpen]=useState(false);
+  if(!campaigns?.length)return null;
+  const totalSpend=campaigns.reduce((s,c)=>s+(c.spend||0),0);
+  const filtered=campaigns.filter(c=>{if(filter==='active')return c.effectiveStatus==='ACTIVE'&&c.spend>0;if(filter==='paused')return c.effectiveStatus==='PAUSED';if(filter==='kill')return c.status==='kill';return true;}).filter(c=>!search||c.name.toLowerCase().includes(search.toLowerCase())).sort((a,b)=>{const v1=a[sort.f]??-1,v2=b[sort.f]??-1;return sort.d==='desc'?v2-v1:v1-v2;});
+  const loadDetail=async(id)=>{if(detail[id]||loading[id])return;setLoading(p=>({...p,[id]:true}));try{const d=await fetchDetail(token,id,dateQ);setDetail(p=>({...p,[id]:d}));}catch(e){}finally{setLoading(p=>({...p,[id]:false}));};};
+  const toggleRow=(c)=>{if(expanded===c.id){setExpanded(null);}else{setExpanded(c.id);loadDetail(c.id);}};
+  return(
+    <div className="border border-stone-800/60 mt-3">
+      <div className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-stone-900/20 border-b border-stone-800/40" onClick={()=>setOpen(!open)}>
+        <div><span className="text-xs font-semibold text-stone-300">Legacy campaigns</span><span className="ml-2 text-[9px] text-stone-500">{campaigns.filter(c=>c.spend>0).length} active · {inr(totalSpend)}</span></div>
+        <div className="flex items-center gap-2"><span className="text-[9px] text-stone-600">{campaigns.length} total</span><span className="text-stone-600">{open?'▲':'▼'}</span></div>
+      </div>
+      {open&&<div className="slide-down">
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-stone-800/30 bg-stone-950/40 flex-wrap">
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search…" className="bg-stone-800 border border-stone-700 text-stone-200 text-xs px-2.5 py-1 outline-none w-40 focus:border-amber-600 rounded-sm"/>
+          {['all','active','paused','kill'].map(f=>(<button key={f} onClick={()=>setFilter(f)} className={`text-[9px] uppercase tracking-widest px-2 py-1 rounded-sm ${filter===f?'bg-stone-700 text-stone-200':'text-stone-500 hover:text-stone-300'}`}>{f}</button>))}
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[11px]">
+            <thead><tr className="border-b border-stone-800/40">{[['Name',null],['Spend','spend'],['Revenue','revenue'],['ROAS','roas'],['Orders','purchases'],['Freq','frequency']].map(([h,sf])=>(<th key={h} className={`py-2 font-normal text-stone-600 ${h==='Name'?'text-left pl-3':'text-right cursor-pointer hover:text-stone-400'}`} onClick={()=>sf&&setSort(s=>({f:sf,d:s.f===sf&&s.d==='desc'?'asc':'desc'}))}>{h}{sort.f===sf?sort.d==='desc'?' ▼':' ▲':''}</th>))}<th className="py-2 text-right pr-3 text-stone-600 font-normal">↗</th></tr></thead>
+            <tbody>
+              {filtered.slice(0,50).map(c=>(
+                <React.Fragment key={c.id}>
+                  <tr className={`border-b border-stone-800/20 hover:bg-stone-800/20 cursor-pointer ${c.status==='kill'?'bg-red-950/10':''} ${expanded===c.id?'bg-stone-800/30':''}`} onClick={()=>toggleRow(c)}>
+                    <td className="py-2 pl-3 text-stone-300 max-w-[200px]"><div className="flex items-center gap-2"><span className="text-stone-600">{expanded===c.id?'▼':'▶'}</span><span className="truncate" title={c.name}>{c.name}</span></div></td>
+                    <td className="py-2 text-right mono text-stone-300">{c.spend>0?inr(c.spend):'—'}</td>
+                    <td className="py-2 text-right mono text-stone-300">{c.revenue>0?inr(c.revenue):'—'}</td>
+                    <td className={`py-2 text-right mono font-bold ${c.roas>=1.4?'text-emerald-400':c.roas>0?c.roas>=1.0?'text-amber-400':'text-red-400':'text-stone-600'}`}>{c.roas!=null?fx(c.roas):'—'}</td>
+                    <td className="py-2 text-right mono text-stone-400">{c.purchases||0}</td>
+                    <td className="py-2 text-right mono text-stone-500">{c.frequency>0?c.frequency.toFixed(2)+'x':'—'}</td>
+                    <td className="py-2 text-right pr-3"><a href={`https://business.facebook.com/adsmanager/manage/campaigns?act=${ACCOUNT_ID}&selected_campaign_ids=${c.id}`} target="_blank" onClick={e=>e.stopPropagation()} className="text-stone-600 hover:text-stone-400">↗</a></td>
+                  </tr>
+                  {expanded===c.id&&(<tr><td colSpan={7} className="p-0"><div className="px-3 pb-3"><CampaignDetail cfg={{slot:'LEGACY',name:c.name,type:'legacy',killRoas:1.0,targetCpa:4000,targetAov:5000,freqMax:3.0,killSpend:10000}} data={c} detail={detail[c.id]} loading={!!loading[c.id]} dateLabel={dateQ}/></div></td></tr>)}
+                </React.Fragment>
+              ))}
+            </tbody>
+          </table>
+          {filtered.length>50&&<div className="px-3 py-2 text-[10px] text-stone-600 text-center">Showing 50 of {filtered.length}</div>}
+        </div>
+      </div>}
+    </div>
+  );
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────
+function Dashboard({token,onChangeToken}){
+  const[data,setData]=useState(null);const[err,setErr]=useState(null);const[syncing,setSyncing]=useState(false);const[lastSync,setLastSync]=useState(null);
+  const[preset,setPreset]=useState('last_7d');const[custom,setCustom]=useState({s:'',u:''});const[useCustom,setUseCustom]=useState(false);const[showPicker,setShowPicker]=useState(false);
+  const[expanded,setExpanded]=useState(null);const[detail,setDetail]=useState({});const[loadingDetail,setLoadingDetail]=useState({});
+  const dateQ=useMemo(()=>useCustom&&custom.s&&custom.u?`time_range=${encodeURIComponent(JSON.stringify({since:custom.s,until:custom.u}))}`:`date_preset=${preset}`,[useCustom,custom,preset]);
+  const dateLabel=useMemo(()=>useCustom&&custom.s&&custom.u?`${custom.s} → ${custom.u}`:preset,[useCustom,custom,preset]);
+  const sync=useCallback(async()=>{setSyncing(true);setErr(null);try{const d=await fetchAll(token,dateQ);setData(d);setLastSync(new Date().toISOString());}catch(e){setErr(e.message);}finally{setSyncing(false);};},[token,dateQ]);
+  useEffect(()=>{sync();},[]);
+  const loadDetail=useCallback(async(id)=>{if(loadingDetail[id])return;setLoadingDetail(p=>({...p,[id]:true}));try{const d=await fetchDetail(token,id,dateQ);setDetail(p=>({...p,[id]:d}));}catch(e){console.error(e);}finally{setLoadingDetail(p=>({...p,[id]:false}));};},[token,dateQ]);
+  const toggle=(id)=>{if(expanded===id){setExpanded(null);}else{setExpanded(id);if(!detail[id])loadDetail(id);}};
+  const slotData=useMemo(()=>{if(!data?.campaigns)return{};const m={};data.campaigns.forEach(c=>{if(c.slot)m[c.slot]=c;});return m;},[data]);
+  return(
+    <div className="min-h-screen pb-10">
+      {/* Sticky header */}
+      <div className="sticky top-0 z-40 bg-stone-950/96 border-b border-stone-800/60 backdrop-blur-sm">
+        <div className="flex items-center justify-between px-4 py-2 gap-2 flex-wrap">
+          <div className="flex items-center gap-2.5">
+            <span className="text-[9px] text-stone-600 uppercase tracking-[0.2em]">Fashion Forever</span>
+            {data&&<div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${syncing?'bg-amber-400 pulse':'bg-emerald-500'}`}/>}
+            {lastSync&&<span className="text-[9px] text-stone-600">{syncing?'Syncing…':'Synced '+new Date(lastSync).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</span>}
+          </div>
+          <div className="flex items-center gap-1 flex-wrap">
+            {DATE_PRESETS.map(p=>(<button key={p.v} onClick={()=>{setPreset(p.v);setUseCustom(false);setExpanded(null);setDetail({});}} className={`text-[9px] px-2 py-1 rounded-sm uppercase tracking-widest ${(!useCustom&&preset===p.v)?'bg-stone-700 text-stone-100':'text-stone-500 hover:text-stone-300'}`}>{p.l}</button>))}
+            <button onClick={()=>setShowPicker(!showPicker)} className={`text-[9px] px-2 py-1 rounded-sm ${useCustom?'bg-amber-700 text-stone-100':'text-stone-500 hover:text-stone-300'}`}>📅 Custom</button>
+            {showPicker&&<div className="flex items-center gap-1"><input type="date" value={custom.s} onChange={e=>setCustom(p=>({...p,s:e.target.value}))} className="bg-stone-800 border border-stone-700 text-stone-200 text-[10px] px-1.5 py-0.5 outline-none rounded-sm"/><span className="text-stone-600 text-xs">→</span><input type="date" value={custom.u} onChange={e=>setCustom(p=>({...p,u:e.target.value}))} className="bg-stone-800 border border-stone-700 text-stone-200 text-[10px] px-1.5 py-0.5 outline-none rounded-sm"/><button onClick={()=>{if(custom.s&&custom.u){setUseCustom(true);setShowPicker(false);}}} className="text-[9px] px-2 py-0.5 bg-amber-600 text-stone-950 font-semibold rounded-sm">Go</button></div>}
+            <button onClick={sync} disabled={syncing} className="text-[9px] px-3 py-1 bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold rounded-sm disabled:opacity-50 uppercase tracking-widest">{syncing?<span className="spin">↻</span>:'Sync'}</button>
+            <button onClick={onChangeToken} className="text-[9px] px-2 py-1 border border-stone-700 text-stone-500 hover:text-stone-300 rounded-sm">Token</button>
+          </div>
+        </div>
+      </div>
+      {err&&<div className="mx-4 mt-3 px-3 py-2 bg-red-950/30 border border-red-800/50 text-red-300 text-xs rounded-sm">{err}<br/><span className="text-stone-600 text-[10px]">Token expired? Click "Token" button to re-enter.</span></div>}
+      {!data&&!err&&<div className="flex items-center justify-center py-24 text-stone-500 text-sm"><span className="spin mr-2">↻</span>Connecting to Meta API…</div>}
+      {data&&<div className="px-4 pt-3">
+        {/* Account KPIs */}
+        <div className="grid grid-cols-4 sm:grid-cols-7 border border-stone-800/60 mb-3 bg-stone-900/20">
+          <Kpi label="SPEND" value={inr(data.spend)} sub="period total"/>
+          <Kpi label="REVENUE" value={inr(data.revenue)} sub="Meta attrib."/>
+          <Kpi label="ROAS" value={fx(data.roas)} sub="target 1.5x+" status={data.roas>=1.5?'good':data.roas>=1.0?'warn':'bad'}/>
+          <Kpi label="AOV" value={inr(data.aov)} sub="Core Pair ₹7,800" status={(data.aov||0)>=6500?'good':'warn'}/>
+          <Kpi label="CPA" value={inr(data.cpa)} sub="≤₹3,800" status={(data.cpa||9999)<=3800?'good':'bad'}/>
+          <Kpi label="FREQUENCY" value={fx(data.frequency,2)} sub="cap 3.5x" status={(data.frequency||0)<=2.5?'good':'warn'}/>
+          <Kpi label="IC→PURCHASE" value={pct(data.icToPurchase)} sub="target ≥40%" status={(data.icToPurchase||0)>=40?'good':'warn'}/>
+        </div>
+        {data.roas<1.0&&data.spend>0&&<div className="mb-3 px-3 py-2 bg-red-950/20 border-l-2 border-red-500 text-red-300 text-[11px] rounded-r-sm">🔴 Account ROAS {data.roas}x below 1.0x — contribution-negative. Every rupee of revenue costs more than it earns.</div>}
+        {data.roas>=1.0&&data.roas<1.4&&data.spend>0&&<div className="mb-3 px-3 py-2 bg-red-950/10 border-l-2 border-red-700 text-red-400 text-[11px]">⚠ Account ROAS {data.roas}x below kill threshold of 1.4x.</div>}
+        {data.icToPurchase!==null&&data.icToPurchase<40&&data.ic>0&&<div className="mb-3 px-3 py-2 bg-amber-950/20 border-l-2 border-amber-700 text-amber-400 text-[11px]">⚠ IC→Purchase {data.icToPurchase}% — payment failures. Check Razorpay dashboard immediately.</div>}
+        {/* Phase tracker */}
+        <PhaseTracker dailyData={data.dailyData}/>
+        {/* C1-C9 Matrix */}
+        <div className="mb-1 flex items-center justify-between"><span className="text-[10px] font-semibold text-stone-500 uppercase tracking-widest">C1–C9 Campaign Matrix</span><span className="text-[9px] text-stone-600">{data.campaigns?.filter(c=>c.effectiveStatus==='ACTIVE').length||0}/9 active · click to expand</span></div>
+        <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-2 mb-2">
+          {SLOTS.map(cfg=>{const d=slotData[cfg.slot];return(<CampaignCard key={cfg.slot} cfg={cfg} data={d} open={expanded===d?.id} onToggle={()=>d&&toggle(d.id)}/>);})}
+        </div>
+        {/* Inline campaign detail */}
+        {expanded&&(()=>{const d=data.campaigns.find(c=>c.id===expanded);if(!d)return null;const cfg=SLOT_MAP[d.slot];return(<CampaignDetail cfg={cfg} data={d} detail={detail[expanded]} loading={!!loadingDetail[expanded]} dateLabel={dateLabel}/>);})()}
+        {/* Legacy */}
+        <LegacyTable campaigns={data.unmappedCampaigns||[]} token={token} dateQ={dateQ}/>
+      </div>}
+    </div>
+  );
+}
+
 function App(){
-  const[token,setToken]=useState(()=>sessionStorage.getItem('meta_token')||'');
-  const[ok,setOk]=useState(()=>sessionStorage.getItem('ff_unlock')==='1'&&!!sessionStorage.getItem('meta_token'));
-  return ok?<Dashboard token={token}/>:<LoginGate onLogin={t=>{setToken(t);setOk(true);}}/>;
+  const[token,setToken]=useState(()=>localStorage.getItem('meta_token')||'');
+  const[hasToken,setHasToken]=useState(()=>!!localStorage.getItem('meta_token'));
+  const login=(t)=>{setToken(t);setHasToken(true);};
+  const logout=()=>{localStorage.removeItem('meta_token');setToken('');setHasToken(false);};
+  return hasToken&&token?<Dashboard token={token} onChangeToken={logout}/>:<TokenGate onLogin={login}/>;
 }
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
